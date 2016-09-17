@@ -1,4 +1,5 @@
 import Control.Monad
+import Data.List (foldl')
 import System.Environment
 import Text.Parsec
 
@@ -18,7 +19,13 @@ printStmt (If c b (Just e)) = putStr "(if " >> printExpr c  >> printStmt b >> pu
 printStmt (If c b _) = putStr "(if " >> printExpr c >> printStmt b >> putStrLn ")"
 printStmt (While c b) = putStr "(while " >> printExpr c >> printStmt b >> putStr ")"
 printStmt (Block ss) = putStr "(" >> printAST ss >> putStr ")"
-printStmt (Single e) = putStr "(" >> printExpr e >> putStr ")"
+printStmt (Single e xs) = putStr "(" >> printExpr e >> printArgs xs >> putStr ")"
+    where
+        printArgs [] = return ()
+        printArgs ys = putStr "(" >> foldl' (\_ x -> printExpr x >> putStr ",") (return ()) ys >> putStr ")"
+printStmt (Def n xs b) = putStr "(def " >> putStr n >> putStr " (" >> printArgs xs >> putStr ")" >> printStmt b >> putStr ")"
+    where
+        printArgs = foldl' (\_ x -> putStr x >> putStr ",") (return ())
 
 printExpr :: Expr -> IO ()
 printExpr (Un f) = printFactor f
@@ -33,3 +40,6 @@ printPrimary (Paren e) = putStr "(" >> printExpr e >> putStr ")"
 printPrimary (Num n) = putStr . show $ n
 printPrimary (Id x) = putStr x
 printPrimary (Str s) = putStr "\"" >> putStr s >> putStr "\""
+printPrimary (DefApp p xs) = printPrimary p >> putStr "(" >> printArgs xs >> putStr ")"
+    where
+        printArgs = foldl' (\_ x -> printExpr x >> putStr ",") (return ())

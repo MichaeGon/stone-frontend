@@ -17,30 +17,30 @@ import Text.Parsec.Token
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
 
-data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr --[Expr] | Def String [String] Stmt
+data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr [Expr] | Def String [String] Stmt
     deriving (Show)
 data Expr = Un Factor | Bin Expr String Expr
     deriving (Show)
 data Factor = Neg Primary | Pos Primary
     deriving (Show)
-data Primary = Paren Expr | Num Integer | Id String | Str String -- | DefApp Primary [Expr]
+data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primary [Expr]
     deriving (Show)
 
 program :: Parser [Stmt]
-{-
-program = try (oneOf ";\n" *> program) <|> try ((def <|> stmt) >>= rms) <|> return []
+--{-
+program = whiteSpace' *> program'
     where
-        rms x = (x:) <$> program
--}
-program = whiteSpace' *> stmts <* eof
+        program' = try (oneOf ";\n" *> program') <|> try ((def <|> stmt) >>= rms) <|> return []
+            where
+                rms x = (x:) <$> program'
+--}
+--program = whiteSpace' *> stmts <* eof
 
-{-}
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> blockstmt)
     where
-        paramList = parens' (commaSep1' identifier')
-        commaSep1' = commaSep1 lexer
--}
+        paramList = parens' $ commaSep' identifier'
+        --commaSep1' = commaSep1 lexer
 
 whiteSpace' :: Parser ()
 whiteSpace' = whiteSpace lexer
@@ -50,6 +50,9 @@ reserved' = reserved lexer
 
 parens' :: Parser a -> Parser a
 parens' = parens lexer
+
+commaSep' :: Parser a -> Parser [a]
+commaSep' = commaSep lexer
 
 identifier' :: Parser String
 identifier' = identifier lexer
@@ -71,7 +74,9 @@ stmt = choice
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt))) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
         --blockstmt = try (Block <$> braces' stmts)
-        single = Single <$> expr
+        single = Single <$> expr <*> postfix
+        postfix = commaSep' expr
+        -- commaSep' = commaSep lexer
         --reserved' = reserved lexer
         --braces' = braces lexer
 
@@ -106,6 +111,19 @@ factor = (reserved' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
         -- reserved' = reserved lexer
 
 primary :: Parser Primary
+primary = primary' >>= checkArgs
+    where
+        primary' = choice
+            [ Paren <$> parens' expr
+            , Num <$> try natural'
+            , Id <$> try identifier'
+            , Str <$> try stringLiteral'
+            ]
+        natural' = natural lexer
+        stringLiteral' = stringLiteral lexer
+        checkArgs p = try (DefApp p <$> postfix) <|> return p
+        postfix = parens' $ commaSep' expr
+{-}
 primary = choice
     [ Paren <$> parens' expr
     , Num <$> try natural'
@@ -117,3 +135,4 @@ primary = choice
         natural' = natural lexer
         --identifier' = identifier lexer
         stringLiteral' = stringLiteral lexer
+-}
