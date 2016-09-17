@@ -17,17 +17,42 @@ import Text.Parsec.Token
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
 
-data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr
+data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr --[Expr] | Def String [String] Stmt
     deriving (Show)
 data Expr = Un Factor | Bin Expr String Expr
     deriving (Show)
 data Factor = Neg Primary | Pos Primary
     deriving (Show)
-data Primary = Paren Expr | Num Integer | Id String | Str String
+data Primary = Paren Expr | Num Integer | Id String | Str String -- | DefApp Primary [Expr]
     deriving (Show)
 
 program :: Parser [Stmt]
-program = stmts <* eof
+{-
+program = try (oneOf ";\n" *> program) <|> try ((def <|> stmt) >>= rms) <|> return []
+    where
+        rms x = (x:) <$> program
+-}
+program = whiteSpace' *> stmts <* eof
+
+{-}
+def :: Parser Stmt
+def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> blockstmt)
+    where
+        paramList = parens' (commaSep1' identifier')
+        commaSep1' = commaSep1 lexer
+-}
+
+whiteSpace' :: Parser ()
+whiteSpace' = whiteSpace lexer
+
+reserved' :: String -> Parser ()
+reserved' = reserved lexer
+
+parens' :: Parser a -> Parser a
+parens' = parens lexer
+
+identifier' :: Parser String
+identifier' = identifier lexer
 
 stmts :: Parser [Stmt]
 stmts = try (oneOf ";\n" *> stmts) <|> try (stmt >>= rms) <|> return []
@@ -45,9 +70,14 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt))) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
-        blockstmt = try (Block <$> braces' stmts)
+        --blockstmt = try (Block <$> braces' stmts)
         single = Single <$> expr
-        reserved' = reserved lexer
+        --reserved' = reserved lexer
+        --braces' = braces lexer
+
+blockstmt :: Parser Stmt
+blockstmt = try (Block <$> braces' stmts)
+    where
         braces' = braces lexer
 
 expr :: Parser Expr
@@ -67,13 +97,13 @@ expr = factor >>= checkOp
         build [] [y] = return y
         build (x : xs) (r : l : ys) = build xs (Bin l x r : ys)
         build _ _ = fail "internal parser error in build"
-        
+
         operator' = choice . fmap (\x -> x <$ reservedOp lexer x) $ reservedOpNames stoneDef
 
 factor :: Parser Factor
 factor = (reserved' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
     where
-        reserved' = reserved lexer
+        -- reserved' = reserved lexer
 
 primary :: Parser Primary
 primary = choice
@@ -83,7 +113,7 @@ primary = choice
     , Str <$> try stringLiteral'
     ]
     where
-        parens' = parens lexer
+        --parens' = parens lexer
         natural' = natural lexer
-        identifier' = identifier lexer
+        --identifier' = identifier lexer
         stringLiteral' = stringLiteral lexer

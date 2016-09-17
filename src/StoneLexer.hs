@@ -38,5 +38,8 @@ lexer = stone
     }
     where
         stone = makeTokenParser stoneDef
-        simpleSpace' = skipMany1 (satisfy (`elem` " \t\r\f\v"))
-        oneLineComment = try (string (commentLine stoneDef)) >> skipMany (satisfy (/= '\n')) >> return ()
+        simpleSpace' = skipMany1 $ satisfy (`elem` " \t\r\f\v")
+        oneLineComment = try (string (commentLine stoneDef))
+                    >> skipMany (satisfy (/= '\n'))
+                    >> char '\n'
+                    >> return ()
