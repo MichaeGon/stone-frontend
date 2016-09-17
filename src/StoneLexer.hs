@@ -3,6 +3,7 @@ module StoneLexer
     , stoneDef
     ) where
 
+import Text.Parsec
 import Text.Parsec.Char
 import Text.Parsec.Language
 import Text.Parsec.Token
@@ -17,4 +18,10 @@ stoneDef = emptyDef
     }
 
 lexer :: TokenParser ()
-lexer = makeTokenParser stoneDef
+lexer = stone
+    { whiteSpace = skipMany (simpleSpace' <|> oneLineComment <?> "")
+    }
+    where
+        stone = makeTokenParser stoneDef
+        simpleSpace' = skipMany1 (satisfy (`elem` " \t\r\f\v"))
+        oneLineComment = try (string (commentLine stoneDef)) >> skipMany (satisfy (/= '\n')) >> return ()
