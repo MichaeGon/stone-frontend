@@ -1,3 +1,4 @@
+// function test
 def fact (n) {
     f = 1
     while n > 0 {
@@ -9,6 +10,7 @@ def fact (n) {
 fact(9)
 fact 9
 
+// statement test
 even = 0
 odd = 0
 i = 1
