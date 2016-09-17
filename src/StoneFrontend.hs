@@ -5,14 +5,11 @@ module StoneFrontend
     , Stmt(..)
     , parseProgram
     , program
-    , ops
-    , Precedence(..)
     ) where
 
 import StoneLexer
 
 import Data.Map
-import Data.Ord
 import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Token
@@ -20,20 +17,9 @@ import Text.Parsec.Token
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
 
-data Precedence = Precedence {precedence :: Int, leftAssoc :: Bool }
-    deriving (Show, Eq)
-
-instance Ord Precedence where
-    x `compare` y = comparing precedence x y `mappend` comparing leftAssoc y x
-
-ops :: Map String Precedence
-ops = fromList $ zip (reservedOpNames stoneDef) (fmap prec [(1, False), (2, True), (2, True), (2, True), (3, True), (3, True), (4, True), (4, True), (4, True)])
-    where
-        prec (x, y) = Precedence x y
-
 data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr
     deriving (Show)
-data Expr = Un Factor | Bin Factor String Expr
+data Expr = Un Factor | Bin Expr String Expr
     deriving (Show)
 data Factor = Neg Primary | Pos Primary
     deriving (Show)
@@ -65,9 +51,23 @@ stmt = choice
         braces' = braces lexer
 
 expr :: Parser Expr
-expr = factor >>= binexpr
+expr = factor >>= checkOp
     where
-        binexpr fct = try (Bin fct <$> operator' <*> expr) <|> return (Un fct)
+        checkOp fct = try (operator' >>= checkFactor) <|> return (Un fct)
+            where
+                checkFactor op = factor >>= expr' [op] . (: [Un fct]) . Un
+
+        expr' xxs@(x : xs) yys@(r : l : ys) = try (operator' >>= nextFactor) <|> build xxs yys
+            where
+                nextFactor op
+                    | precedences ! x < precedences ! op = factor >>= expr' (op : xxs) . (: yys) . Un
+                    | otherwise = factor >>= expr' (op : xs) . (\n -> n : Bin l x r : ys) . Un
+        expr' _ _ = fail "internal parser error in expr'"
+
+        build [] [y] = return y
+        build (x : xs) (r : l : ys) = build xs (Bin l x r : ys)
+        build _ _ = fail "internal parser error in build"
+        
         operator' = choice . fmap (\x -> x <$ reservedOp lexer x) $ reservedOpNames stoneDef
 
 factor :: Parser Factor
