@@ -28,7 +28,7 @@ stoneDef = emptyDef
     { commentLine = "//"
     , identStart = letter
     , identLetter = alphaNum
-    , reservedNames = ["if", "else", "while"]
+    , reservedNames = ["if", "else", "while", "def"]
     , reservedOpNames = ["=", "==", ">", "<", "+", "-", "*", "/", "%"{-, "&&", "||", ">=", "<="-}]
     }
 
