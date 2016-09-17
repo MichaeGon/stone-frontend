@@ -27,20 +27,16 @@ data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primar
     deriving (Show)
 
 program :: Parser [Stmt]
---{-
 program = whiteSpace' *> program'
     where
         program' = try (oneOf ";\n" *> program') <|> try ((def <|> stmt) >>= rms) <|> return []
             where
                 rms x = (x:) <$> program'
---}
---program = whiteSpace' *> stmts <* eof
 
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> blockstmt)
     where
         paramList = parens' $ commaSep' identifier'
-        --commaSep1' = commaSep1 lexer
 
 whiteSpace' :: Parser ()
 whiteSpace' = whiteSpace lexer
@@ -73,12 +69,8 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt))) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
-        --blockstmt = try (Block <$> braces' stmts)
         single = Single <$> expr <*> postfix
         postfix = commaSep' expr
-        -- commaSep' = commaSep lexer
-        --reserved' = reserved lexer
-        --braces' = braces lexer
 
 blockstmt :: Parser Stmt
 blockstmt = try (Block <$> braces' stmts)
@@ -107,8 +99,6 @@ expr = factor >>= checkOp
 
 factor :: Parser Factor
 factor = (reserved' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
-    where
-        -- reserved' = reserved lexer
 
 primary :: Parser Primary
 primary = primary' >>= checkArgs
@@ -123,16 +113,3 @@ primary = primary' >>= checkArgs
         stringLiteral' = stringLiteral lexer
         checkArgs p = try (DefApp p <$> postfix) <|> return p
         postfix = parens' $ commaSep' expr
-{-}
-primary = choice
-    [ Paren <$> parens' expr
-    , Num <$> try natural'
-    , Id <$> try identifier'
-    , Str <$> try stringLiteral'
-    ]
-    where
-        --parens' = parens lexer
-        natural' = natural lexer
-        --identifier' = identifier lexer
-        stringLiteral' = stringLiteral lexer
--}
