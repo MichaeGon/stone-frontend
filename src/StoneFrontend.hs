@@ -3,6 +3,7 @@ module StoneFrontend
     , Factor(..)
     , Expr(..)
     , Stmt(..)
+    , parseProgram
     , program
     , ops
     , Precedence(..)
@@ -15,6 +16,9 @@ import Data.Ord
 import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Token
+
+parseProgram :: String -> Either ParseError [Stmt]
+parseProgram = parse program ""
 
 data Precedence = Precedence {precedence :: Int, leftAssoc :: Bool }
     deriving (Show, Eq)
