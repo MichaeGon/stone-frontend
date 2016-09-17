@@ -1,3 +1,14 @@
+def fact (n) {
+    f = 1
+    while n > 0 {
+        f = f * n
+        n = n - 1
+    }
+    f
+}
+fact(9)
+fact 9
+
 even = 0
 odd = 0
 i = 1
@@ -9,5 +20,5 @@ while i < 10 {
     }
     i = i + 1
 }
-
 even + odd
+//
