@@ -29,14 +29,16 @@ data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primar
 program :: Parser [Stmt]
 program = whiteSpace' *> program'
     where
+        program' = try (oneOf ";\n" *> program') <|> try ((:) <$> (def <|> stmt) <*> program') <|> return []
+        {-}
         program' = try (oneOf ";\n" *> program') <|> try ((def <|> stmt) >>= rms) <|> return []
             where
                 rms x = (x:) <$> program'
-
+            -}
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> blockstmt)
     where
-        paramList = parens' $ commaSep' identifier'
+        paramList = parens' . try $ commaSep' identifier'
 
 whiteSpace' :: Parser ()
 whiteSpace' = whiteSpace lexer
@@ -54,9 +56,12 @@ identifier' :: Parser String
 identifier' = identifier lexer
 
 stmts :: Parser [Stmt]
+stmts = try (oneOf ";\n" *> stmts) <|> try ((:) <$> stmt <*> stmts) <|> return []
+{-}
 stmts = try (oneOf ";\n" *> stmts) <|> try (stmt >>= rms) <|> return []
     where
         rms x = (x:) <$> stmts
+-}
 
 stmt :: Parser Stmt
 stmt = choice
@@ -69,7 +74,11 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt))) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
-        single = Single <$> expr <*> postfix
+        single = Single <$> expr <*> postfix -- <* oneOf ";\n"
+        {-postfix = try ([] <$ oneOf ";\n") <|> ((:) <$> expr <*> postfix')
+            where
+                postfix' = try ([] <$ oneOf ";\n") <|> (char ',' *> ((:) <$> expr <*> postfix'))
+        --}
         postfix = commaSep' expr
 
 blockstmt :: Parser Stmt
@@ -104,12 +113,16 @@ primary :: Parser Primary
 primary = primary' >>= checkArgs
     where
         primary' = choice
-            [ Paren <$> parens' expr
+            [ Paren <$> try (parens' expr)
             , Num <$> try natural'
             , Id <$> try identifier'
             , Str <$> try stringLiteral'
             ]
         natural' = natural lexer
         stringLiteral' = stringLiteral lexer
+        --checkArgs p = try (DefApp p <$> parens' postfix) <|> return p
+        --postfix = try $ commaSep' expr
+        --{-}
         checkArgs p = try (DefApp p <$> postfix) <|> return p
         postfix = parens' $ commaSep' expr
+        --}
