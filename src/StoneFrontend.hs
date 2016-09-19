@@ -30,7 +30,7 @@ data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primar
 program :: Parser [Stmt]
 program = whiteSpace' *> program' <* eof
     where
-        program' = many $ (def <|> stmt) <* seps--`sepEndBy` try seps
+        program' = many $ (def <|> stmt) -- <* seps--`sepEndBy` try seps
 
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> parens' paramList <*> blockstmt)
@@ -39,23 +39,36 @@ def = reserved' "def" *> (Def <$> identifier' <*> parens' paramList <*> blockstm
 
 stmt :: Parser Stmt
 stmt = choice
-    [ nullstmt,
+    [ --nullstmt,
     blockstmt
     , single
     , ifstmt
     , whilestmt
     ] <?> "stmt" -- <|> return Null
     where
-        nullstmt = Null <$  (try . lookAhead) seps
+        --nullstmt = Null <$  (try . lookAhead) seps
         single = flip Single [] <$> expr -- (expr <* try seps)
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt) ) ) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
 
 blockstmt :: Parser Stmt
-blockstmt = Block <$> braces' (many $ stmt <* seps)--try stmt `sepEndBy` try seps)
+blockstmt = Block <$> braces' (many $ stmt {-}<* seps-})--try stmt `sepEndBy` try seps)
 
 expr :: Parser Expr
+expr = secl `chainr1` asgn
+    where
+        secl = trdl `chainl1` cmps
+        trdl = fthl `chainl1` adds
+        fthl = unfact `chainl1` muls
+        unfact = Un <$> factor
+        --binop :: String -> Expr -> Expr -> Expr
+        binop x = (\l r -> Bin l x r) <$ reservedOp' x
+        asgn = binop "="
+        cmps = binop "==" <|> binop ">" <|> binop "<"
+        adds = binop "+" <|> binop "-"
+        muls = binop "*" <|> binop "/" <|> binop "%"
+{-}
 expr = factor >>= checkOp . Un
     where
         checkOp fct = (fct <$ notFollowedBy operator') <|> (operator' >>= intoExpr')
@@ -69,12 +82,14 @@ expr = factor >>= checkOp . Un
                     | otherwise = sepsfail <|> (factor >>= expr' (op : xs) . (\n -> n : Bin l x r : ys) . Un)
 
         expr' _ _ = fail "internal error: expr'"
+-}
+{-}
         sepsfail = try (seps *> fail "\";\" or end of line")
 
         build [] [y] = trace (show y ) y
         build (x : xs) (r : l : ys) = build xs (Bin l x r : ys)
         build _ _ = error "internal error: build"
-
+-}
         operator' = choice . fmap (\x -> x <$ try (reservedOp lexer x)) $ reservedOpNames stoneDef
 
 factor :: Parser Factor

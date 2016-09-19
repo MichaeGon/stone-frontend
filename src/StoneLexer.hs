@@ -34,13 +34,14 @@ stoneDef = emptyDef
     }
 
 lexer :: TokenParser ()
-lexer = stone
+lexer = {-stone
     { whiteSpace = skipMany (simpleSpace' <|> oneLineComment <?> "")
     }
     where
-        stone = makeTokenParser stoneDef
-        simpleSpace' = skipMany1 $ satisfy (\x -> isSpace x && x /= '\n')
+        stone = -}makeTokenParser stoneDef
+{-}        simpleSpace' = skipMany1 $ satisfy (\x -> isSpace x && x /= '\n')
         oneLineComment = try (string (commentLine stoneDef))
                     >> skipMany (satisfy (/= '\n'))
                     -- >> char '\n'
                     >> return ()
+-}
