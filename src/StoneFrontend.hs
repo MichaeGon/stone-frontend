@@ -56,18 +56,19 @@ blockstmt :: Parser Stmt
 blockstmt = Block <$> braces' (many $ stmt {-}<* seps-})--try stmt `sepEndBy` try seps)
 
 expr :: Parser Expr
-expr = secl `chainr1` asgn
+expr = l2s `chainr1` r1ops
     where
-        secl = trdl `chainl1` cmps
-        trdl = fthl `chainl1` adds
-        fthl = unfact `chainl1` muls
+        l2s = l3s `chainl1` l2ops
+        l3s = l4s `chainl1` l3ops
+        l4s = unfact `chainl1` l4ops
         unfact = Un <$> factor
         --binop :: String -> Expr -> Expr -> Expr
         binop x = (\l r -> Bin l x r) <$ reservedOp' x
-        asgn = binop "="
-        cmps = binop "==" <|> binop ">" <|> binop "<"
-        adds = binop "+" <|> binop "-"
-        muls = binop "*" <|> binop "/" <|> binop "%"
+        ops = choice . fmap binop
+        r1ops = ops ["="]
+        l2ops = ops ["==", "<", ">"]
+        l3ops = ops ["+", "-"]
+        l4ops = ops ["*", "/", "%"]
 {-}
 expr = factor >>= checkOp . Un
     where
@@ -90,7 +91,7 @@ expr = factor >>= checkOp . Un
         build (x : xs) (r : l : ys) = build xs (Bin l x r : ys)
         build _ _ = error "internal error: build"
 -}
-        operator' = choice . fmap (\x -> x <$ try (reservedOp lexer x)) $ reservedOpNames stoneDef
+        --operator' = choice . fmap (\x -> x <$ try (reservedOp lexer x)) $ reservedOpNames stoneDef
 
 factor :: Parser Factor
 factor = (reserved' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
