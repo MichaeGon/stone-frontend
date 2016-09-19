@@ -6,7 +6,7 @@ import Text.Parsec
 import StoneFrontend
 
 main :: IO ()
-main = getArgs >>= mapM_ (readFile >=> br . parseProgram)
+main = getArgs >>= mapM_ (\x -> putStrLn x >> readFile x >>= parseTest program){-br . parseProgram)
     where
         br (Right x) = printAST x >> putStrLn ""
         br (Left x) = print x
@@ -26,6 +26,7 @@ printStmt (Single e xs) = putStr "(" >> printExpr e >> printArgs xs >> putStr ")
 printStmt (Def n xs b) = putStr "(def " >> putStr n >> putStr " (" >> printArgs xs >> putStr ")" >> printStmt b >> putStr ")"
     where
         printArgs = foldl' (\_ x -> putStr x >> putStr ",") (return ())
+printStmt Null = putStr "<null>"
 
 printExpr :: Expr -> IO ()
 printExpr (Un f) = printFactor f
@@ -43,3 +44,4 @@ printPrimary (Str s) = putStr "\"" >> putStr s >> putStr "\""
 printPrimary (DefApp p xs) = printPrimary p >> putStr "(" >> printArgs xs >> putStr ")"
     where
         printArgs = foldl' (\_ x -> printExpr x >> putStr ",") (return ())
+-}

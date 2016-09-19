@@ -8,7 +8,7 @@ def fact (n) {
     f
 }
 fact(9)
-fact 9
+//fact 9
 
 // statement test
 even = 0
