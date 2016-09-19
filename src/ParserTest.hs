@@ -10,7 +10,7 @@ main = getArgs >>= mapM_ (\x -> putStrLn x >> readFile x >>= parseTest program){
     where
         br (Right x) = printAST x >> putStrLn ""
         br (Left x) = print x
--}
+
 printAST :: [Stmt] -> IO ()
 printAST = mapM_ printStmt
 
@@ -44,3 +44,4 @@ printPrimary (Str s) = putStr "\"" >> putStr s >> putStr "\""
 printPrimary (DefApp p xs) = printPrimary p >> putStr "(" >> printArgs xs >> putStr ")"
     where
         printArgs = foldl' (\_ x -> printExpr x >> putStr ",") (return ())
+-}
