@@ -16,7 +16,7 @@ import Text.Parsec.Token
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
 
-data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr {-}[Expr]-} | Def String [String] Stmt-- | Null
+data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr | Def String [String] Stmt
     deriving (Show)
 data Expr = Un Factor | Bin Expr String Expr
     deriving (Show)
@@ -43,7 +43,7 @@ stmt = choice
     , whilestmt
     ] <?> "stmt"
     where
-        single = Single <$> expr -- flip Single [] <$> expr
+        single = Single <$> expr
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt) ) ) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
