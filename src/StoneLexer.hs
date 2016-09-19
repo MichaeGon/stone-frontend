@@ -5,6 +5,7 @@ module StoneLexer
     , Precedence(..)
     ) where
 
+import Data.Char
 import Data.Map
 import Data.Ord
 import Text.Parsec
@@ -38,8 +39,8 @@ lexer = stone
     }
     where
         stone = makeTokenParser stoneDef
-        simpleSpace' = skipMany1 $ satisfy (`elem` " \t\r\f\v")
+        simpleSpace' = skipMany1 $ satisfy (\x -> isSpace x && x /= '\n')
         oneLineComment = try (string (commentLine stoneDef))
                     >> skipMany (satisfy (/= '\n'))
-                    >> char '\n'
+                    -- >> char '\n'
                     >> return ()
