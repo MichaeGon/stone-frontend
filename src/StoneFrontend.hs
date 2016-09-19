@@ -22,7 +22,7 @@ data Expr = Un Factor | Bin Expr String Expr
     deriving (Show)
 data Factor = Neg Primary | Pos Primary
     deriving (Show)
-data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primary [Expr]
+data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primary [Expr] | Fun [String] Stmt
     deriving (Show)
 
 program :: Parser [Stmt]
@@ -69,7 +69,7 @@ factor :: Parser Factor
 factor = (reserved' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
 
 primary :: Parser Primary
-primary = choice primary' >>= check
+primary = closure <|> (choice primary' >>= check)
     where
         primary' =
             [ Num <$> (try $ natural lexer)
@@ -79,6 +79,8 @@ primary = choice primary' >>= check
             ]
         check p = (p <$ notFollowedBy (char '(')) <|> (DefApp p <$> parens' params)
         params = try expr `sepBy` try (char ',')
+        closure = reserved' "fun" *> (Fun <$> parens' paramList <*> blockstmt)
+        paramList = identifier' `sepBy` try (char ',')
 
 seps :: Parser Char
 seps = oneOf "\n;"
