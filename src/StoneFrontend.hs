@@ -28,8 +28,19 @@ data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primar
 program :: Parser [Stmt]
 program = whiteSpace' *> program' <* eof
     where
-        program' = many $ def <|> stmt
+        program' = many . choice $ -- $ def <|> stmt
+            [ --defclass,
+             def
+            , stmt
+            ]
 
+-- defclass :: Parser
+{-}
+defclass = reserved' "class" *> identifier' <*> maybe extends <*> classbody
+    where
+        extends = reserved' "extends" *> identifier'
+        classbody = braces' . many $ def <|> single
+-}
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> parens' paramList <*> blockstmt)
     where
@@ -43,10 +54,13 @@ stmt = choice
     , whilestmt
     ] <?> "stmt"
     where
-        single = Single <$> expr
+        --single = Single <$> expr
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt) ) ) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
+
+single :: Parser Stmt
+single = Single <$> expr
 
 blockstmt :: Parser Stmt
 blockstmt = Block <$> braces' (many stmt)
@@ -77,7 +91,7 @@ primary = closure <|> (choice primary' >>= check)
             , Id <$> identifier'
             , Paren <$> parens' expr
             ]
-        check p = (p <$ notFollowedBy (char '(')) <|> (DefApp p <$> parens' params)
+        check p = (p <$ notFollowedBy (char '(')) <|> (parens' params >>= check . DefApp p)
         params = try expr `sepBy` try (char ',')
         closure = reserved' "fun" *> (Fun <$> parens' paramList <*> blockstmt)
         paramList = identifier' `sepBy` try (char ',')
