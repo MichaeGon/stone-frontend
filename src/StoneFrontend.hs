@@ -91,7 +91,7 @@ primary = closure <|> (choice primary' >>= check)
             , Id <$> identifier'
             , Paren <$> parens' expr
             ]
-        check p = (p <$ notFollowedBy (char '(')) <|> (parens' params >>= check . DefApp p)
+        check p = (reservedOp' "." *> fail "undefined dot") <|> (p <$ notFollowedBy (char '(')) <|> (parens' params >>= check . DefApp p)
         params = try expr `sepBy` try (char ',')
         closure = reserved' "fun" *> (Fun <$> parens' paramList <*> blockstmt)
         paramList = identifier' `sepBy` try (char ',')

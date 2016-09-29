@@ -36,3 +36,7 @@ c2 = count(0)
 c1()
 c1()
 c2()
+
+p = Position.new
+p.move(3, 4)
+p.x = 10
