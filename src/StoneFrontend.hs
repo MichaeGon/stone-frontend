@@ -79,7 +79,7 @@ expr = l2s `chainr1` r1ops
         l4ops = ops ["*", "/", "%"]
 
 factor :: Parser Factor
-factor = (reserved' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
+factor = (reservedOp' "-" *> (Neg <$> primary)) <|> (Pos <$> primary)
 
 primary :: Parser Primary
 primary = closure <|> (choice primary' >>= check)
