@@ -28,7 +28,7 @@ data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primar
 program :: Parser [Stmt]
 program = whiteSpace' *> program' <* eof
     where
-        program' = many . choice $ -- $ def <|> stmt
+        program' = many . choice $
             [ defclass
             , def
             , stmt
@@ -53,7 +53,6 @@ stmt = choice
     , whilestmt
     ] <?> "stmt"
     where
-        --single = Single <$> expr
         ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
         elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt) ) ) <|> return Nothing
         whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
