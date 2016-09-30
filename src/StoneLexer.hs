@@ -8,6 +8,8 @@ import Text.Parsec.Char
 import Text.Parsec.Language
 import Text.Parsec.Token
 
+import CompileAssistant
+
 stoneDef :: LanguageDef ()
 stoneDef = emptyDef
     { commentLine = "//"
