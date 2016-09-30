@@ -16,35 +16,34 @@ import Text.Parsec.Token
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
 
-data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr | Def String [String] Stmt
+data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr | Def String [String] Stmt | Class String (Maybe String) [Stmt]
     deriving (Show)
 data Expr = Un Factor | Bin Expr String Expr
     deriving (Show)
 data Factor = Neg Primary | Pos Primary
     deriving (Show)
-data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primary [Expr] | Fun [String] Stmt
+data Primary = Paren Expr | Num Integer | Id String | Str String | DefApp Primary [Expr] | Fun [String] Stmt | Dot Primary String
     deriving (Show)
 
 program :: Parser [Stmt]
 program = whiteSpace' *> program' <* eof
     where
         program' = many . choice $ -- $ def <|> stmt
-            [ --defclass,
-             def
+            [ defclass
+            , def
             , stmt
             ]
 
--- defclass :: Parser
-{-}
-defclass = reserved' "class" *> identifier' <*> maybe extends <*> classbody
+defclass :: Parser Stmt
+defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classbody)
     where
-        extends = reserved' "extends" *> identifier'
+        superclass = (reserved' "extends" *> (Just <$> identifier')) <|> return Nothing
         classbody = braces' . many $ def <|> single
--}
+
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> parens' paramList <*> blockstmt)
     where
-        paramList = identifier' `sepBy` try (char ',')
+        paramList = identifier' `sepBy` try (whiteSpace' *> char ',' <* whiteSpace')
 
 stmt :: Parser Stmt
 stmt = choice
@@ -91,10 +90,10 @@ primary = closure <|> (choice primary' >>= check)
             , Id <$> identifier'
             , Paren <$> parens' expr
             ]
-        check p = (reservedOp' "." *> fail "undefined dot") <|> (p <$ notFollowedBy (char '(')) <|> (parens' params >>= check . DefApp p)
-        params = try expr `sepBy` try (char ',')
+        check p = (reservedOp' "." *> (identifier' >>= check . Dot p)) <|> (p <$ notFollowedBy (char '(')) <|> (parens' params >>= check . DefApp p)
+        params = try expr `sepBy` try (whiteSpace' *> char ',' <* whiteSpace')
         closure = reserved' "fun" *> (Fun <$> parens' paramList <*> blockstmt)
-        paramList = identifier' `sepBy` try (char ',')
+        paramList = identifier' `sepBy` try (whiteSpace' *> char ',' <* whiteSpace')
 
 seps :: Parser Char
 seps = oneOf "\n;"
