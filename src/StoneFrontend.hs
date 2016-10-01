@@ -1,6 +1,5 @@
 module StoneFrontend
     ( Primary(..)
-    --, Factor(..)
     , Expr(..)
     , Stmt(..)
     , parseProgram
@@ -16,8 +15,6 @@ import Text.Parsec.Token
 
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
-
---parseProgram = parse program' ""
 
 program :: Parser [Stmt]
 program = whiteSpace' *> many program' <* eof
