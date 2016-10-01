@@ -31,7 +31,11 @@ data Stmt = If Expr [Stmt] (Maybe [Stmt])
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
     deriving (Show)
 
-data Primary = Paren Expr | Num Integer | Id String | Str String
+data Primary = Paren Expr
+        | Num Integer
+        | Id String
+        | Str String
+        | DefApp Primary [Expr]
     deriving (Show)
 
 program' :: Parser Stmt
@@ -82,12 +86,19 @@ expr = chainr1 l2s r1ops
         l4ops = ops ["*", "/", "%"]
 
 primary :: Parser Primary
-primary = choice
-    [ Num <$> try (natural lexer)
-    , Id <$> identifier'
-    , Str <$> try (stringLiteral lexer)
-    , Paren <$> parens' expr
-    ]
+primary = primary' >>= check
+    where
+        primary' = choice
+            [ Num <$> try (natural lexer)
+            , Id <$> identifier'
+            , Str <$> try (stringLiteral lexer)
+            , Paren <$> parens' expr
+            ]
+
+        check p = option p $ postfix >>= check . DefApp p
+
+        postfix = parens' $ commaSep' expr
+
 
 sep :: Parser ()
 sep = void . many $ reservedOp' ";"
