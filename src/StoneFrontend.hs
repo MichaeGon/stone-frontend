@@ -25,6 +25,7 @@ program = whiteSpace' *> many program' <* eof
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
+        | Def String [String] [Stmt]
     deriving (Show)
 
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
@@ -36,7 +37,12 @@ data Primary = Paren Expr | Num Integer | Id String | Str String
 program' :: Parser Stmt
 program' = sep *> stmt' <* sep
     where
-        stmt' = stmt
+        stmt' = def <|> stmt
+
+def :: Parser Stmt
+def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> block)
+    where
+        paramList = parens' . commaSep' $ identifier'
 
 stmt :: Parser Stmt
 stmt = choice
@@ -55,7 +61,7 @@ simple = Single <$> expr
 block :: Parser [Stmt]
 block = braces' $ many stmt'
     where
-        stmt' = stmt <* sep
+        stmt' = sep *> stmt <* sep
 
 expr :: Parser Expr
 expr = chainr1 l2s r1ops
@@ -103,6 +109,10 @@ parens' = parens lexer
 
 braces' :: Parser a -> Parser a
 braces' = braces lexer
+
+commaSep' :: Parser a -> Parser [a]
+commaSep' x = x `sepBy` (whiteSpace' *> char ',' <* whiteSpace')
+
 {-
 data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr | Def String [String] Stmt | Class String (Maybe String) [Stmt]
     deriving (Show)
