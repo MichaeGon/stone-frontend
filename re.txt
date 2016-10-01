@@ -13,3 +13,13 @@ fact 9
 def test(a, b) {
     a + b
 }
+
+def count(n) {
+    fun () {n = n + 1}
+}
+
+c1 = count(0)
+c2 = count(0)
+c1()
+c1()
+c2()
