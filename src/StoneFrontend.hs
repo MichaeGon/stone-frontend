@@ -26,6 +26,7 @@ data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
         | Def String [String] [Stmt]
+        | Class String (Maybe String) [Stmt]
     deriving (Show)
 
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
@@ -37,12 +38,24 @@ data Primary = Paren Expr
         | Str String
         | DefApp Primary [Expr]
         | Fun [String] [Stmt]
+        | Dot Primary String
     deriving (Show)
 
 program' :: Parser Stmt
 program' = sep *> stmt' <* sep
     where
-        stmt' = def <|> stmt
+        stmt' = choice
+            [ defclass
+            , def
+            , stmt
+            ]
+
+defclass :: Parser Stmt
+defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classbody)
+    where
+        superclass = optionMaybe $ reserved' "extends" *> identifier'
+        classbody = braces' $ many stmt'
+        stmt' = sep *> (def <|> simple) <* sep
 
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> block)
@@ -96,12 +109,13 @@ primary = closure <|> primary'
             , Paren <$> parens' expr
             ] >>= check
 
-        check p = option p $ postfix >>= check . DefApp p
+        check p = option p $ postfix >>= check
+            where
+                postfix = (reservedOp' "." *> (Dot p <$> identifier'))
+                    <|> (DefApp p <$> parens' (commaSep' expr))
 
-        postfix = parens' $ commaSep' expr
-
-        closure = reserved' "fun" *> (Fun <$> args <*> block)
-        args = parens' $ commaSep' identifier'
+        closure = reserved' "fun" *> (Fun <$> params <*> block)
+        params = parens' $ commaSep' identifier'
 
 sep :: Parser ()
 sep = void . many $ reservedOp' ";"
