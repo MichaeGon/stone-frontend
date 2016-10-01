@@ -1,6 +1,6 @@
 module StoneFrontend
     ( Primary(..)
-    , Factor(..)
+    --, Factor(..)
     , Expr(..)
     , Stmt(..)
     , parseProgram
@@ -9,6 +9,7 @@ module StoneFrontend
 
 import StoneLexer
 
+import Control.Monad
 import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Token
@@ -16,6 +17,93 @@ import Text.Parsec.Token
 parseProgram :: String -> Either ParseError [Stmt]
 parseProgram = parse program ""
 
+--parseProgram = parse program' ""
+
+program :: Parser [Stmt]
+program = whiteSpace' *> many program' <* eof
+
+data Stmt = If Expr [Stmt] (Maybe [Stmt])
+        | While Expr [Stmt]
+        | Single Expr
+    deriving (Show)
+
+data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
+    deriving (Show)
+
+data Primary = Paren Expr | Num Integer | Id String | Str String
+    deriving (Show)
+
+program' :: Parser Stmt
+program' = sep *> stmt' <* sep
+    where
+        stmt' = stmt
+
+stmt :: Parser Stmt
+stmt = choice
+    [ ifstmt
+    , whilestmt
+    , simple
+    ]
+    where
+        ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
+        elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
+        whilestmt = reserved' "while" *> (While <$> expr <*> block)
+
+simple :: Parser Stmt
+simple = Single <$> expr
+
+block :: Parser [Stmt]
+block = braces' $ many stmt'
+    where
+        stmt' = stmt <* sep
+
+expr :: Parser Expr
+expr = chainr1 l2s r1ops
+    where
+        l2s = chainl1 l3s l2ops
+        l3s = chainl1 l4s l3ops
+        l4s = chainl1 factor l4ops
+
+        factor = (reservedOp' "-" *> (Neg <$> primary))
+            <|> (Pos <$> primary)
+
+        binop x = (\l r -> Bin l x r) <$ reservedOp' x
+        ops = choice . fmap binop
+
+        r1ops = ops ["="]
+        l2ops = ops ["==", "<", ">"]
+        l3ops = ops ["+", "-"]
+        l4ops = ops ["*", "/", "%"]
+
+primary :: Parser Primary
+primary = choice
+    [ Num <$> try (natural lexer)
+    , Id <$> identifier'
+    , Str <$> try (stringLiteral lexer)
+    , Paren <$> parens' expr
+    ]
+
+sep :: Parser ()
+sep = void . many $ reservedOp' ";"
+
+whiteSpace' :: Parser ()
+whiteSpace' = whiteSpace lexer
+
+reserved' :: String -> Parser ()
+reserved' = reserved lexer
+
+reservedOp' :: String -> Parser ()
+reservedOp' = reservedOp lexer
+
+identifier' :: Parser String
+identifier' = identifier lexer
+
+parens' :: Parser a -> Parser a
+parens' = parens lexer
+
+braces' :: Parser a -> Parser a
+braces' = braces lexer
+{-
 data Stmt = If Expr Stmt (Maybe Stmt) | While Expr Stmt | Block [Stmt] | Single Expr | Def String [String] Stmt | Class String (Maybe String) [Stmt]
     deriving (Show)
 data Expr = Un Factor | Bin Expr String Expr
@@ -121,3 +209,4 @@ braces' = braces lexer
 
 reservedOp' :: String -> Parser ()
 reservedOp' = reservedOp lexer
+-}
