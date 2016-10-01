@@ -44,7 +44,11 @@ data Primary = Paren Expr
 program' :: Parser Stmt
 program' = sep *> stmt' <* sep
     where
+<<<<<<< HEAD
+        program' = many . choice $
+=======
         stmt' = choice
+>>>>>>> feature/rewrite
             [ defclass
             , def
             , stmt
@@ -69,9 +73,15 @@ stmt = choice
     , simple
     ]
     where
+<<<<<<< HEAD
+        ifstmt = reserved' "if" *> (If <$> expr <*> blockstmt <*> elseblock)
+        elseblock = (reserved' "else" *> (Just <$> (ifstmt <|> blockstmt) ) ) <|> return Nothing
+        whilestmt = reserved' "while" *> (While <$> expr <*> blockstmt)
+=======
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
         elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
         whilestmt = reserved' "while" *> (While <$> expr <*> block)
+>>>>>>> feature/rewrite
 
 simple :: Parser Stmt
 simple = Single <$> expr
