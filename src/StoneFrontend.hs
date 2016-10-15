@@ -2,6 +2,7 @@ module StoneFrontend
     ( Primary(..)
     , Expr(..)
     , Stmt(..)
+    , Type(..)
     , parseProgram
     , program
     ) where
@@ -22,12 +23,13 @@ program = whiteSpace' *> many program' <* eof
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
-        | Def String [String] [Stmt]
+        | Def String [(String, Type)] Type [Stmt]
         | Class String (Maybe String) [Stmt]
-    deriving (Show)
+        | Var String Type Expr
+    deriving (Show, Eq)
 
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Primary = Paren Expr
         | Num Integer
@@ -38,7 +40,10 @@ data Primary = Paren Expr
         | Dot Primary String
         | Array [Expr]
         | Index Primary Expr
-    deriving (Show)
+    deriving (Show, Eq)
+
+data Type = TInt | TString | TAny
+    deriving (Show, Eq)
 
 program' :: Parser Stmt
 program' = sep *> stmt' <* sep
@@ -57,13 +62,15 @@ defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classb
         stmt' = sep *> (def <|> simple) <* sep
 
 def :: Parser Stmt
-def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> block)
+def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> typetag <*> block)
     where
-        paramList = parens' . commaSep' $ identifier'
+        paramList = parens' . commaSep' $ param
+        param = (,) <$> identifier' <*> typetag
 
 stmt :: Parser Stmt
 stmt = choice
-    [ ifstmt
+    [ variable
+    , ifstmt
     , whilestmt
     , simple
     ]
@@ -71,6 +78,7 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
         elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
         whilestmt = reserved' "while" *> (While <$> expr <*> block)
+        variable = reserved' "var" *> (Var <$> identifier' <*> typetag <*> (reservedOp' "=" *> expr))
 
 simple :: Parser Stmt
 simple = Single <$> expr
@@ -117,6 +125,15 @@ primary = closure <|> primary'
 
         closure = reserved' "fun" *> (Fun <$> params <*> block)
         params = parens' $ commaSep' identifier'
+
+typetag :: Parser Type
+typetag = (reservedOp' ":" *> choice tags) <|> return TAny
+    where
+        tags =
+            [ TInt <$ reserved' "Int"
+            , TString <$ reserved' "String"
+            , TAny <$ reserved' "Any"
+            ]
 
 sep :: Parser ()
 sep = void . many $ reservedOp' ";"
