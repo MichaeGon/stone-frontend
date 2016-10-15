@@ -42,7 +42,7 @@ data Primary = Paren Expr
         | Index Primary Expr
     deriving (Show, Eq)
 
-data Type = TInt | TString | TAny
+data Type = TInt | TString | TAny | TInfo String | Unknown
     deriving (Show, Eq)
 
 program' :: Parser Stmt
@@ -127,12 +127,13 @@ primary = closure <|> primary'
         params = parens' $ commaSep' identifier'
 
 typetag :: Parser Type
-typetag = (reservedOp' ":" *> choice tags) <|> return TAny
+typetag = option Unknown $ reservedOp' ":" *> choice tags
     where
         tags =
             [ TInt <$ reserved' "Int"
             , TString <$ reserved' "String"
             , TAny <$ reserved' "Any"
+            , TInfo <$> identifier'
             ]
 
 sep :: Parser ()
