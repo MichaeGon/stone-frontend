@@ -23,7 +23,7 @@ program = whiteSpace' *> many program' <* eof
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
-        | Def String [String] [Stmt]
+        | Def String [(String, Type)] Type [Stmt]
         | Class String (Maybe String) [Stmt]
         | Var String Type Expr
     deriving (Show, Eq)
@@ -62,9 +62,10 @@ defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classb
         stmt' = sep *> (def <|> simple) <* sep
 
 def :: Parser Stmt
-def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> block)
+def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> typetag <*> block)
     where
-        paramList = parens' . commaSep' $ identifier'
+        paramList = parens' . commaSep' $ param
+        param = (,) <$> identifier' <*> typetag
 
 stmt :: Parser Stmt
 stmt = choice

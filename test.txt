@@ -71,3 +71,10 @@ a[1]
 b = [["one", 1], ["two", 2]]
 b[1][0]
 b[1][1]
+
+var x: Int = 7
+var x = 7
+
+x * 2
+
+def inc(n: Int): Int {n + 1}
