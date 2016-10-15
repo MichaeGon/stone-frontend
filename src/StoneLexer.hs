@@ -16,7 +16,7 @@ stoneDef = emptyDef
     , identStart = letter
     , identLetter = alphaNum
     , reservedNames = ["if", "else", "while", "def", "fun", "class", "extends"]
-    , reservedOpNames = ["=", "==", ">", "<", "+", "-", "*", "/", "%", ".", ";"]
+    , reservedOpNames = ["=", "==", ">", "<", "+", "-", "*", "/", "%", ".", ";", "[", "]"]
     }
 
 lexer :: TokenParser ()

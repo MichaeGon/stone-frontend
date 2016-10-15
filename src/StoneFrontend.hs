@@ -36,6 +36,8 @@ data Primary = Paren Expr
         | DefApp Primary [Expr]
         | Fun [String] [Stmt]
         | Dot Primary String
+        | Array [Expr]
+        | Index Primary Expr
     deriving (Show)
 
 program' :: Parser Stmt
@@ -104,11 +106,13 @@ primary = closure <|> primary'
             , Id <$> identifier'
             , Str <$> try (stringLiteral lexer)
             , Paren <$> parens' expr
+            , Array <$> brackets' (commaSep' expr)
             ] >>= check
 
         check p = option p $ postfix >>= check
             where
                 postfix = (reservedOp' "." *> (Dot p <$> identifier'))
+                    <|> (notFollowedBy (char '(') *> (Index p <$> brackets' expr))
                     <|> (DefApp p <$> parens' (commaSep' expr))
 
         closure = reserved' "fun" *> (Fun <$> params <*> block)
@@ -134,6 +138,9 @@ parens' = parens lexer
 
 braces' :: Parser a -> Parser a
 braces' = braces lexer
+
+brackets' :: Parser a -> Parser a
+brackets' = brackets lexer
 
 commaSep' :: Parser a -> Parser [a]
 commaSep' x = x `sepBy` (whiteSpace' *> char ',' <* whiteSpace')
