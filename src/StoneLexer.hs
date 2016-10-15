@@ -15,8 +15,8 @@ stoneDef = emptyDef
     { commentLine = "//"
     , identStart = letter
     , identLetter = alphaNum
-    , reservedNames = ["if", "else", "while", "def", "fun", "class", "extends"]
-    , reservedOpNames = ["=", "==", ">", "<", "+", "-", "*", "/", "%", ".", ";", "[", "]"]
+    , reservedNames = ["if", "else", "while", "def", "fun", "class", "extends", "var", "Int", "String", "Any"]
+    , reservedOpNames = ["=", "==", ">", "<", "+", "-", "*", "/", "%", ".", ";", "[", "]", ":"]
     }
 
 lexer :: TokenParser ()
