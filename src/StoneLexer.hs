@@ -8,7 +8,7 @@ import Text.Parsec.Char
 import Text.Parsec.Language
 import Text.Parsec.Token
 
-import CompileAssistant
+-- import CompileAssistant
 
 stoneDef :: LanguageDef ()
 stoneDef = emptyDef

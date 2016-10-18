@@ -8,6 +8,7 @@ module StoneFrontend
     ) where
 
 import StoneLexer
+import TypeCheck ()
 
 import Control.Monad
 import Text.Parsec
@@ -42,7 +43,7 @@ data Primary = Paren Expr
         | Index Primary Expr
     deriving (Show, Eq)
 
-data Type = TInt | TString | TAny | TClass String |Unknown
+data Type = TInt | TString | TAny | TClass String | Unknown
     deriving (Show, Eq)
 
 program' :: Parser Stmt

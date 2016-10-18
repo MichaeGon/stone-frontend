@@ -37,9 +37,9 @@ resolver: lts-7.1
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
-- location:
-    git: git@github.com:MichaeGon/compile-time-player.git
-    commit: c20f0b82d0afe670856aca3e5f6359971195d411
+#- location:
+#    git: git@github.com:MichaeGon/compile-time-player.git
+#    commit: c20f0b82d0afe670856aca3e5f6359971195d411
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
