@@ -2,7 +2,6 @@ module StoneFrontend
     ( Primary(..)
     , Expr(..)
     , Stmt(..)
-    --, Type(..)
     , parseProgram
     , program
     ) where
@@ -23,10 +22,8 @@ program = whiteSpace' *> many program' <* eof
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
-        -- | Def String [(String, Type)] Type [Stmt]
         | Def String [String] [Stmt]
         | Class String (Maybe String) [Stmt]
-        -- | Var String Type Expr
         | Var String Expr
     deriving (Show, Eq)
 
@@ -67,7 +64,7 @@ def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> (typetag *> block))
     where
         paramList = parens' . commaSep' $ param
-        param = {-(,) <$>-} (identifier' <* typetag)
+        param = identifier' <* typetag
 
 stmt :: Parser Stmt
 stmt = choice
