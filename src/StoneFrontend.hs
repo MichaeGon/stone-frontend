@@ -2,7 +2,7 @@ module StoneFrontend
     ( Primary(..)
     , Expr(..)
     , Stmt(..)
-    , Type(..)
+    --, Type(..)
     , parseProgram
     , program
     ) where
@@ -23,9 +23,11 @@ program = whiteSpace' *> many program' <* eof
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
-        | Def String [(String, Type)] Type [Stmt]
+        -- | Def String [(String, Type)] Type [Stmt]
+        | Def String [String] [Stmt]
         | Class String (Maybe String) [Stmt]
-        | Var String Type Expr
+        -- | Var String Type Expr
+        | Var String Expr
     deriving (Show, Eq)
 
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
@@ -42,7 +44,7 @@ data Primary = Paren Expr
         | Index Primary Expr
     deriving (Show, Eq)
 
-data Type = TInt | TString | TAny | TClass String |Unknown
+data Type = TInt | TString | TAny | TClass String | Unknown
     deriving (Show, Eq)
 
 program' :: Parser Stmt
@@ -62,10 +64,10 @@ defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classb
         stmt' = sep *> (def <|> simple) <* sep
 
 def :: Parser Stmt
-def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> typetag <*> block)
+def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> (typetag *> block))
     where
         paramList = parens' . commaSep' $ param
-        param = (,) <$> identifier' <*> typetag
+        param = {-(,) <$>-} (identifier' <* typetag)
 
 stmt :: Parser Stmt
 stmt = choice
@@ -78,7 +80,7 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
         elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
         whilestmt = reserved' "while" *> (While <$> expr <*> block)
-        variable = reserved' "var" *> (Var <$> identifier' <*> typetag <*> (reservedOp' "=" *> expr))
+        variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
 
 simple :: Parser Stmt
 simple = Single <$> expr
