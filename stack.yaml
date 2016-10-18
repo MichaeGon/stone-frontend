@@ -39,7 +39,7 @@ packages:
 - '.'
 - location:
     git: git@github.com:MichaeGon/compile-time-player.git
-    commit: c20f0b82d0afe670856aca3e5f6359971195d411
+    commit: e7264d9936fa851a3f1c92d5ac79e7f2dc384ad1
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
