@@ -18,15 +18,15 @@ type Env = [M.Map String Type]
 
 data Type = TInt
     | TString
-    | TClass String
-    | TFunction [Type] Type
+    | TClass String [String]
+    | TFunction [Type] Type Env
     | TArray Type
     | TAny
     | Unknown
     deriving (Show, Eq)
 
 class ITypeCheck a where
-    typeCheck :: (a, Type) -> Parser a
+    typeCheck :: a -> Parser (a, Type)
 
 singleton :: Env
 singleton = [M.empty]
@@ -69,7 +69,27 @@ splitEnvAt n = splitAt n <$> getState
 maybe' :: String -> (a -> Parser b) -> Maybe a -> Parser b
 maybe' = maybe . fail
 
+isSubTypeOf :: Type -> Type -> Bool
+_ `isSubTypeOf` TAny = True
+
+TFunction xs xt _ `isSubTypeOf` TFunction ys yt _ = (length xs == length ys)
+                                                && isSubTypeOf xt yt
+                                                && all (uncurry isSubTypeOf) (zip xs ys)
+
+TArray x `isSubTypeOf` TArray y = x `isSubTypeOf` y
+
+TClass xn xs `isSubTypeOf` TClass yn _ = xn == yn || elem yn xs
+
+x `isSubTypeOf` y = x == y
+
+union :: Type -> Type -> Type
+union x y
+    | x `isSubTypeOf` y = y
+    | y `isSubTypeOf` x = x
+    | otherwise = TAny
+
 instance ITypeCheck Stmt where
+    typeCheck p@(If c b e) = fail "undefined"
     typeCheck _ = fail "undefined stmt"
 
 instance ITypeCheck Expr where
