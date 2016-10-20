@@ -103,19 +103,38 @@ instance ITypeCheck Primary where
     typeCheck p@(Str _) = return (p, TString)
 
 instance ITypeCheck Expr where
-    typeCheck e@(Pos p) = error "undefined pos"
-    typeCheck e@(Neg p) = error "undefined neg"
+    typeCheck e@(Pos p) = (e,) . snd <$> typeCheck p
+    typeCheck e@(Neg p) = check <$> typeCheck p
+        where
+            check (_, pt)
+                | pt `isSubTypeOf` TInt = (e, pt)
+                | otherwise = error $ "expect Int at negative but: " `mappend` show pt
     typeCheck e@(Bin l x r) = error "undefined bin"
 
 instance ITypeCheck Stmt where
-    typeCheck s@(If c b e) = error "undefined if"
+    typeCheck s@(If c b (Just e)) = check <$> typeCheck c <*> typeCheckBlock b <*> typeCheckBlock e
+        where
+            check (_, ct) (_, bt) (_, et)
+                | ct `isSubTypeOf` TInt = (s, ct `union` bt `union` et)
+                | otherwise = error $ "expect Int at if condition but: " `mappend` show ct
+    typeCheck s@(If c b _) = check <$> typeCheck c <*> typeCheckBlock b
+        where
+            check (_, ct) (_, bt)
+                | ct `isSubTypeOf` TInt = (s, ct `union` bt)
+                | otherwise = error $ "expect Int at if condition but: " `mappend` show ct
     typeCheck s@(While c b) = check <$> typeCheck c <*> typeCheckBlock b
         where
             check (_, ct) (_, bt)
                 | ct `isSubTypeOf` TInt = (s, ct `union` bt)
                 | otherwise = error $ "expect Int at while condition but: " `mappend` show ct
-    typeCheck s@(Def name xs t b) = error "undefined def"
-    typeCheck s@(Class name sc b) = error "undefined class"
+    typeCheck s@(Def name xs t b) = lookupEnv name >>= maybe check (const (error $ "duplicate definition: " `mappend` name))
+        where
+            check = error "undefined def"
+
+    typeCheck s@(Class name sc b) = lookupEnv name >>= maybe check (const (error $ "duplicate definition: " `mappend` name))
+        where
+            check = error "undefined class"
+
     typeCheck s@(Var name t e) = pop >>= check . fromJust
         where
             check z = maybe dv jf $ lookup name z
@@ -127,4 +146,5 @@ instance ITypeCheck Stmt where
                         | otherwise = error $ "type mismatch at variable: " `mappend` name
                     jf = const (error $ "duplicate variable: " `mappend` name)
                     success x = (s, x) <$ push (insert name x z)
+
     typeCheck s@(Single e) = (s,) . snd <$> typeCheck e
