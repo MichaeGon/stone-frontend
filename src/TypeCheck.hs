@@ -3,7 +3,9 @@ module TypeCheck where
 
 import Control.Monad
 import Control.Monad.State
-import Data.List (foldl')
+import Data.Functor (($>))
+import Data.List (foldl', foldl1')
+import Data.Maybe
 import Prelude hiding (lookup)
 import qualified Data.Map as M
 
@@ -13,7 +15,7 @@ type Env = [M.Map String Type]
 type EnvState = State Env
 
 class ITypeCheck a where
-    typeCheck :: a -> EnvState a
+    typeCheck :: a -> EnvState (a, Type)
 
 singleton :: Env
 singleton = [M.empty]
@@ -47,6 +49,9 @@ pop = get >>= modf
         modf (x : xs) = return [x] <$ put xs
         modf _ = return Nothing
 
+push :: Env -> EnvState ()
+push = modify . mappend
+
 lengthEnv :: EnvState Int
 lengthEnv = length <$> get
 
@@ -55,6 +60,13 @@ splitEnvAt n = splitAt n <$> get
 
 maybe' :: String -> (a -> b) -> Maybe a -> b
 maybe' = maybe . error
+
+evacEnv :: EnvState a -> EnvState a
+evacEnv x = get >>= (x >>=) . ($>) . put
+
+typeCheckBlock :: (ITypeCheck a) => [a] -> EnvState ([a], Type)
+typeCheckBlock [] = return ([], Unknown)
+typeCheckBlock xs = (xs,) <$> foldl' (\acc x -> acc >> (snd <$> typeCheck x)) (return Unknown) xs
 
 isSubTypeOf :: Type -> Type -> Bool
 _ `isSubTypeOf` TAny = True
@@ -76,23 +88,43 @@ union x y
     | otherwise = TAny
 
 instance ITypeCheck Primary where
-    typeCheck p@(Id s) = error "undefined id"
+    typeCheck p@(Id s) = lookupEnv s >>= maybe' ("undefined identifier: " `mappend` s) (return . (p,))
     typeCheck p@(DefApp prim xs) = error "undefined defapp"
     typeCheck p@(Fun xs t b) = error "undefined defapp "
     typeCheck p@(Dot prim x) = error "undefined dot"
-    typeCheck p@(Array xs) = error "undefined array"
-    typeCheck p@(Index prim xs) = error "undefined index"
-    typeCheck p = return p
+    typeCheck p@(Array xs) = (p,) . TArray . foldl1' union <$> mapM (fmap snd . typeCheck) xs
+    typeCheck p@(Index prim xs) = check <$> typeCheck prim <*> typeCheck xs
+        where
+            check (Array _, TArray arrt) (_, nt)
+                | nt `isSubTypeOf` TInt = (p, arrt)
+                | otherwise = error $ "expect Int at index but " `mappend` show nt
+            check (_, t) _ = error $ "expect array at index but " `mappend` show t
+    typeCheck p@(Num _) = return (p, TInt)
+    typeCheck p@(Str _) = return (p, TString)
 
 instance ITypeCheck Expr where
-    typeCheck e@(Pos p) = e <$ typeCheck p
+    typeCheck e@(Pos p) = error "undefined pos"
     typeCheck e@(Neg p) = error "undefined neg"
     typeCheck e@(Bin l x r) = error "undefined bin"
 
 instance ITypeCheck Stmt where
     typeCheck s@(If c b e) = error "undefined if"
-    typeCheck s@(While c b) = error "undefined if"
+    typeCheck s@(While c b) = check <$> typeCheck c <*> typeCheckBlock b
+        where
+            check (_, ct) (_, bt)
+                | ct `isSubTypeOf` TInt = (s, ct `union` bt)
+                | otherwise = error $ "expect Int at while condition but: " `mappend` show ct
     typeCheck s@(Def name xs t b) = error "undefined def"
     typeCheck s@(Class name sc b) = error "undefined class"
-    typeCheck s@(Var name t e) = error "undefined var"
-    typeCheck s@(Single e) = s <$ typeCheck e
+    typeCheck s@(Var name t e) = pop >>= check . fromJust
+        where
+            check z = maybe dv jf $ lookup name z
+                where
+                    dv = typeCheck e >>= check'
+                    check' (_, et)
+                        | t == Unknown = success et
+                        | et `isSubTypeOf` t = success t
+                        | otherwise = error $ "type mismatch at variable: " `mappend` name
+                    jf = const (error $ "duplicate variable: " `mappend` name)
+                    success x = (s, x) <$ push (insert name x z)
+    typeCheck s@(Single e) = (s,) . snd <$> typeCheck e
