@@ -38,7 +38,8 @@ c1()
 c2()
 
 class Position {
-    x = y = 0
+    var x = 0
+    var y = 0
     def move (nx, ny) {
         x = nx
         y = ny
@@ -50,7 +51,7 @@ p.move(3, 4)
 p.x = 10
 
 class Pos3D extends Position {
-    z = 0
+    var z = 0
     def set (nx, ny, nz) {
         x = nx
         y = ny

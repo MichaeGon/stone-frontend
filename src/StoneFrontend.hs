@@ -58,7 +58,7 @@ defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classb
     where
         superclass = optionMaybe $ reserved' "extends" *> identifier'
         classbody = braces' $ many stmt'
-        stmt' = sep *> (def <|> simple) <* sep
+        stmt' = sep *> (def <|> variable) <* sep
 
 def :: Parser Stmt
 def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> (typetag *> block))
@@ -77,7 +77,10 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
         elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
         whilestmt = reserved' "while" *> (While <$> expr <*> block)
-        variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
+        --variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
+
+variable :: Parser Stmt
+variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
 
 simple :: Parser Stmt
 simple = Single <$> expr
