@@ -126,9 +126,9 @@ instance ITypeCheck Stmt where
             check ct bt
                 | ct `isSubTypeOf` TInt = ct `union` bt
                 | otherwise = error $ "expect Int at while condition but: " `mappend` show ct
-    typeCheck (Def name xs t b) = lookupEnv name >>= maybe check (const (error $ "duplicate definition: " `mappend` name))
+    typeCheck (Def name xs t b) = lookupEnv name >>= maybe dv (const (error $ "duplicate definition: " `mappend` name))
         where
-            check = error "undefined def"
+            dv = error "undefined def"
 
     typeCheck (Class name sc b) = lookupEnv name >>= maybe check (const (error $ "duplicate definition: " `mappend` name))
         where
