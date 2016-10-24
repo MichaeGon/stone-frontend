@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module TypeCheck where
 
+import Control.Arrow ((&&&))
 import Control.Monad
 import Control.Monad.State
 import Data.Functor (($>))
@@ -15,7 +16,7 @@ type Env = [M.Map String Type]
 type EnvState = State Env
 
 class ITypeCheck a where
-    typeCheck :: a -> EnvState Type
+    typeCheck :: a -> EnvState (a, Type)
 
 singleton :: Env
 singleton = [M.empty]
@@ -64,19 +65,23 @@ maybe' = maybe . error
 evacEnv :: EnvState a -> EnvState a
 evacEnv x = get >>= (x >>=) . ($>) . put
 
-typeCheckBlock :: (ITypeCheck a) => [a] -> EnvState Type
-typeCheckBlock = foldl' (\acc x -> acc >> typeCheck x) (return Unknown)
+typeCheckBlock :: (ITypeCheck a) => [a] -> EnvState ([a], Type)
+typeCheckBlock [] = return ([], Unknown)
+typeCheckBlock xs = edit <$> mapM typeCheck xs
+    where
+        edit = fmap fst &&& (snd . last)
 
 isSubTypeOf :: Type -> Type -> Bool
 _ `isSubTypeOf` TAny = True
 
-TFunction xs xt `isSubTypeOf` TFunction ys yt = (length xs == length ys)
-                                                && isSubTypeOf xt yt
-                                                && all (uncurry isSubTypeOf) (zip xs ys)
+TFunction xs xt `isSubTypeOf` TFunction ys yt
+                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
 
-TArray x `isSubTypeOf` TArray y = x `isSubTypeOf` y
+TArray x `isSubTypeOf` TArray y
+                    = x `isSubTypeOf` y
 
-TClass xn xs `isSubTypeOf` TClass yn _ = xn == yn || elem yn xs
+TClass xn xs `isSubTypeOf` TClass yn _
+                    = xn == yn || elem yn xs
 
 x `isSubTypeOf` y = x == y
 
@@ -87,20 +92,32 @@ union x y
     | otherwise = TAny
 
 instance ITypeCheck Primary where
-    typeCheck (Id s) = fromMaybe (error $ "undefined identifier: " `mappend` s) <$> lookupEnv s
+    typeCheck p@(Id s) = maybe' ("undefined identifier: " `mappend` s) (p,) <$> lookupEnv s
+
     typeCheck p@(DefApp prim xs) = error "undefined defapp"
     typeCheck p@(Fun xs t b) = error "undefined defapp "
     typeCheck p@(Dot prim x) = error "undefined dot"
-    typeCheck (Array xs) = TArray . foldl' union Unknown <$> mapM typeCheck xs
-    typeCheck (Index prim xs) = check <$> typeCheck prim <*> typeCheck xs
+    typeCheck (Array xs) = undefined--TArray . foldl' union Unknown <$> mapM typeCheck xs
+    typeCheck (Index prim xs) = undefined
+        {-
+        check <$> typeCheck prim <*> typeCheck xs
         where
             check (TArray arrt) nt
                 | nt `isSubTypeOf` TInt = arrt
                 | otherwise = error $ "expect Int at index but " `mappend` show nt
             check t _ = error $ "expect array at index but " `mappend` show t
-    typeCheck (Num _) = return TInt
-    typeCheck (Str _) = return TString
+            -}
+    typeCheck p@(Num _) = return (p, TInt)
+    typeCheck p@(Str _) = return (p, TString)
 
+
+instance ITypeCheck Expr where
+    typeCheck _ = undefined
+
+instance ITypeCheck Stmt where
+    typeCheck _ = undefined
+    
+{-}
 instance ITypeCheck Expr where
     typeCheck (Pos p) = typeCheck p
     typeCheck (Neg p) = typeCheck p
@@ -147,3 +164,4 @@ instance ITypeCheck Stmt where
                     success x = x <$ push (insert name x z)
 
     typeCheck (Single e) = typeCheck e
+-}
