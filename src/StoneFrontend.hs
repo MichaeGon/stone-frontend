@@ -6,6 +6,7 @@ module StoneFrontend
     , program
     ) where
 
+import StoneAST
 import StoneLexer
 import TypeCheck ()
 
@@ -19,31 +20,6 @@ parseProgram = parse program ""
 
 program :: Parser [Stmt]
 program = whiteSpace' *> many program' <* eof
-
-data Stmt = If Expr [Stmt] (Maybe [Stmt])
-        | While Expr [Stmt]
-        | Single Expr
-        | Def String [String] [Stmt]
-        | Class String (Maybe String) [Stmt]
-        | Var String Expr
-    deriving (Show, Eq)
-
-data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
-    deriving (Show, Eq)
-
-data Primary = Paren Expr
-        | Num Integer
-        | Id String
-        | Str String
-        | DefApp Primary [Expr]
-        | Fun [String] [Stmt]
-        | Dot Primary String
-        | Array [Expr]
-        | Index Primary Expr
-    deriving (Show, Eq)
-
-data Type = TInt | TString | TAny | TClass String | Unknown
-    deriving (Show, Eq)
 
 program' :: Parser Stmt
 program' = sep *> stmt' <* sep
@@ -62,10 +38,10 @@ defclass = reserved' "class" *> (Class <$> identifier' <*> superclass <*> classb
         stmt' = sep *> (def <|> variable) <* sep
 
 def :: Parser Stmt
-def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> (typetag *> block))
+def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> typetag <*> block)
     where
         paramList = parens' . commaSep' $ param
-        param = identifier' <* typetag
+        param = (,) <$> identifier' <*> typetag
 
 stmt :: Parser Stmt
 stmt = choice
@@ -81,7 +57,7 @@ stmt = choice
         --variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
 
 variable :: Parser Stmt
-variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
+variable = reserved' "var" *> (Var <$> identifier' <*> typetag <*> (reservedOp' "=" *> expr))
 
 simple :: Parser Stmt
 simple = Single <$> expr
@@ -126,8 +102,9 @@ primary = closure <|> primary'
                     <|> (notFollowedBy (char '(') *> (Index p <$> brackets' expr))
                     <|> (DefApp p <$> parens' (commaSep' expr))
 
-        closure = reserved' "fun" *> (Fun <$> params <*> block)
-        params = parens' $ commaSep' identifier'
+        closure = reserved' "fun" *> (Fun <$> params <*> typetag <*> block)
+        params = parens' $ commaSep' param
+        param = (,) <$> identifier' <*> typetag
 
 typetag :: Parser Type
 typetag = option Unknown $ reservedOp' ":" *> choice tags
@@ -136,7 +113,7 @@ typetag = option Unknown $ reservedOp' ":" *> choice tags
             [ TInt <$ reserved' "Int"
             , TString <$ reserved' "String"
             , TAny <$ reserved' "Any"
-            , TClass <$> identifier'
+            --, TClass <$> identifier' -- undefined
             ]
 
 sep :: Parser ()
