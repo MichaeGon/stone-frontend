@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module TypeCheck where
 
-import Control.Arrow ((&&&))
+import Control.Arrow ((&&&), (***), first)
 import Control.Monad
 import Control.Monad.State
 import Data.Functor (($>))
@@ -94,11 +94,23 @@ union x y
 instance ITypeCheck Primary where
     typeCheck p@(Id s) = maybe' ("undefined identifier: " `mappend` s) (p,) <$> lookupEnv s
 
-    typeCheck p@(DefApp prim xs) = error "undefined defapp"
+    typeCheck (DefApp prim xs) = check <$> typeCheck prim <*> mapM typeCheck xs
+        where
+            check = undefined
+
     typeCheck p@(Fun xs t b) = error "undefined defapp "
     typeCheck p@(Dot prim x) = error "undefined dot"
-    typeCheck (Array xs) = undefined--TArray . foldl' union Unknown <$> mapM typeCheck xs
-    typeCheck (Index prim xs) = undefined
+    typeCheck (Array xs) = edit <$> mapM typeCheck xs
+        where
+            edit [] = (Array xs, TArray Unknown)
+            edit ys = (Array *** (TArray . last)) $ unzip ys
+        --TArray . foldl' union Unknown <$> mapM typeCheck xs
+    typeCheck (Index prim xs) = check <$> typeCheck prim <*> typeCheck xs
+        where
+            check (as, TArray at) (n, nt)
+                | nt `isSubTypeOf` TInt = (Index as n, nt)
+                | otherwise = error $ "expect Int at index but: " `mappend` show nt
+            check (_, t) _ = error $ "expect array at index but: " `mappend` show t
         {-
         check <$> typeCheck prim <*> typeCheck xs
         where
@@ -112,20 +124,16 @@ instance ITypeCheck Primary where
 
 
 instance ITypeCheck Expr where
-    typeCheck _ = undefined
-
-instance ITypeCheck Stmt where
-    typeCheck _ = undefined
-    
-{-}
-instance ITypeCheck Expr where
-    typeCheck (Pos p) = typeCheck p
-    typeCheck (Neg p) = typeCheck p
+    typeCheck (Pos prim) = first Pos <$> typeCheck prim
+    typeCheck (Neg prim) = check <$> typeCheck prim
         where
-            check pt
-                | pt `isSubTypeOf` TInt = pt
-                | otherwise = error $ "expect Int at negative but: " `mappend` show pt
-    typeCheck (Bin l x r) = error "undefined bin"
+            check (n, nt)
+                | nt `isSubTypeOf` TInt = (Neg n, nt)
+                | otherwise = error $ "expect Int at neg but: " `mappend` show nt
+
+    typeCheck (Bin l x r) = undefined
+
+{-
 
 instance ITypeCheck Stmt where
     typeCheck (If c b (Just e)) = check <$> typeCheck c <*> typeCheckBlock b <*> typeCheckBlock e
@@ -165,3 +173,5 @@ instance ITypeCheck Stmt where
 
     typeCheck (Single e) = typeCheck e
 -}
+instance ITypeCheck Stmt where
+    typeCheck _ = undefined
