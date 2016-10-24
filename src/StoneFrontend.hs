@@ -7,6 +7,7 @@ module StoneFrontend
     ) where
 
 import StoneLexer
+import TypeCheck ()
 
 import Control.Monad
 import Text.Parsec
