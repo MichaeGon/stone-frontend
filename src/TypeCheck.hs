@@ -50,6 +50,9 @@ pop = get >>= modf
         modf (x : xs) = return [x] <$ put xs
         modf _ = return Nothing
 
+pop' :: EnvState Env
+pop' = fromJust <$> pop
+
 push :: Env -> EnvState ()
 push = modify . mappend
 
@@ -173,5 +176,36 @@ instance ITypeCheck Stmt where
 
     typeCheck (Single e) = typeCheck e
 -}
+
 instance ITypeCheck Stmt where
-    typeCheck _ = undefined
+    typeCheck (If c xs (Just e)) = check <$> typeCheck c <*> typeCheckBlock xs <*> typeCheckBlock e
+        where
+            check (cv, ct) (xvs, xt) (ev, et)
+                | ct `isSubTypeOf` TInt = (If cv xvs (Just ev), ct `union` xt `union` et)
+                | otherwise = error $ "expect Int at if condition but: " `mappend` show ct
+    typeCheck (If c xs _) = check <$> typeCheck c <*> typeCheckBlock xs
+        where
+            check (cv, ct) (xvs, xt)
+                | ct `isSubTypeOf` TInt =  (If cv xvs Nothing, ct `union` xt)
+                | otherwise = error $ "expect Int at if condition but: " `mappend` show ct
+    typeCheck (While c xs) = check <$> typeCheck c <*> typeCheckBlock xs
+        where
+            check (cv, ct) (xvs, xt)
+                | ct `isSubTypeOf` TInt = (While cv xvs, ct `union` xt)
+                | otherwise = error $ "expect Int at while condition but: " `mappend` show ct
+
+    typeCheck (Def s xs t b) = evacEnv checkDup >> typeCheckArgs >>= undefined
+        where
+            checkDup = maybe () (error $ "duplicate definition: " `mappend` s) . lookup s <$> pop'
+            typeCheckArgs = undefined
+            
+    typeCheck Class{} = undefined
+    typeCheck (Var s t e) = evacEnv checkDup
+                        >> typeCheck e >>= check
+        where
+            checkDup = maybe () (error $ "duplicate variable: " `mappend` s) . lookup s <$> pop'
+            check (ev, et)
+                | et `isSubTypeOf` t = (Var s t ev, t) <$ (pop' >>= push . insert s t)
+                | otherwise = error "type mismatch at var"
+
+    typeCheck (Single e) = first Single <$> typeCheck e
