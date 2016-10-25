@@ -31,7 +31,7 @@ data Primary = Paren Expr
 
 data Type = TInt
     | TString
-    | TClass String [String]
+    | TClass String
     | TFunction [Type] Type
     | TArray Type
     | TAny

@@ -85,13 +85,17 @@ TFunction xs xt `isSubTypeOf` TFunction ys yt
 TArray x `isSubTypeOf` TArray y
                     = x `isSubTypeOf` y
 
+{-
 TClass xn xs `isSubTypeOf` TClass yn _
                     = xn == yn || elem yn xs
+-}
+TClass x `isSubTypeOf` TClass y = error "subtype: class"
 
 x `isSubTypeOf` y = x == y
 
 union :: Type -> Type -> Type
 union x y
+    | x == Unknown || y == Unknown = error "union: Unknown"
     | x `isSubTypeOf` y = y
     | y `isSubTypeOf` x = x
     | otherwise = TAny
