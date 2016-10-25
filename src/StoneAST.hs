@@ -35,5 +35,6 @@ data Type = TInt
     | TFunction [Type] Type
     | TArray Type
     | TAny
+    -- | TObject String [String] [Stmt]
     | Unknown
     deriving (Show, Eq)
