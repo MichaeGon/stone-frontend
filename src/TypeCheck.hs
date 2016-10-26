@@ -187,7 +187,11 @@ instance ITypeCheck Stmt where
         where
             checkDup = maybe () (error $ "duplicate definition: " `mappend` s) . lookup s <$> pop'
             initLocalEnv = foldl' (\acc (x, xt) -> insert x xt acc) singleton xs
-            checkBody = undefined
+            checkBody = typeCheckBlock b >>= check
+            check (bv, bt)
+                | bt `isSubTypeOf` t = undefined
+                | otherwise = error "type mismatch at function"
+
 
     typeCheck (Class s sc xs) = undefined
 
