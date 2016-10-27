@@ -113,7 +113,7 @@ typetag = option Unknown $ reservedOp' ":" *> choice tags
             [ TInt <$ reserved' "Int"
             , TString <$ reserved' "String"
             , TAny <$ reserved' "Any"
-            , TClass <$> identifier'
+            , TClassKey <$> identifier'
             ]
 
 sep :: Parser ()

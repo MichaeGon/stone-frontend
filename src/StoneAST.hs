@@ -3,7 +3,10 @@ module StoneAST
     , Expr(..)
     , Stmt(..)
     , Type(..)
+    , Env
     ) where
+
+import qualified Data.Map as M
 
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
@@ -29,12 +32,14 @@ data Primary = Paren Expr
         | Index Primary Expr
     deriving (Show, Eq)
 
+type Env = [M.Map String Type]
+
 data Type = TInt
     | TString
-    | TClass String
+    | TClassKey String
     | TFunction [Type] Type
     | TArray Type
     | TAny
-    -- | TObject String [String] [Stmt]
+    | TClassTree String [String] Env
     | Unknown
     deriving (Show, Eq)

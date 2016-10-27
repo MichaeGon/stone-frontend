@@ -12,7 +12,6 @@ import qualified Data.Map as M
 
 import StoneAST
 
-type Env = [M.Map String Type]
 type EnvState = State Env
 
 class ITypeCheck a where
@@ -89,7 +88,7 @@ TArray x `isSubTypeOf` TArray y
 TClass xn xs `isSubTypeOf` TClass yn _
                     = xn == yn || elem yn xs
 -}
-TClass x `isSubTypeOf` TClass y = error "subtype: class"
+--TClass x `isSubTypeOf` TClass y = error "subtype: class"
 
 x `isSubTypeOf` y = x == y
 
