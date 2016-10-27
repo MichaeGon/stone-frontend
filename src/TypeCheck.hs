@@ -109,11 +109,6 @@ TArray x `isSubTypeOf` TArray y
 
 TClassTree xn xs _ `isSubTypeOf` TClassTree yn _ _
                     = xn == yn || elem yn xs
-{-
-TClass xn xs `isSubTypeOf` TClass yn _
-                    = xn == yn || elem yn xs
--}
---TClass x `isSubTypeOf` TClass y = error "subtype: class"
 
 x `isSubTypeOf` y = x == y
 
@@ -177,7 +172,7 @@ instance ITypeCheck Primary where
         where
             edit [] = (Array xs, TArray Unknown)
             edit ys = (Array *** (TArray . unions . filter (/= Unknown))) $ unzip ys
-        --TArray . foldl' union Unknown <$> mapM typeCheck xs
+
             unions [] = Unknown
             unions ys = foldl1' union ys
 
@@ -187,14 +182,7 @@ instance ITypeCheck Primary where
                 | nt `isSubTypeOf` TInt = (Index as n, at)
                 | otherwise = error $ "expect Int at index but: " `mappend` show nt
             check (_, t) _ = error $ "expect array at index but: " `mappend` show t
-        {-
-        check <$> typeCheck prim <*> typeCheck xs
-        where
-            check (TArray arrt) nt
-                | nt `isSubTypeOf` TInt = arrt
-                | otherwise = error $ "expect Int at index but " `mappend` show nt
-            check t _ = error $ "expect array at index but " `mappend` show t
-            -}
+
     typeCheck p@(Num _) = return (p, TInt)
     typeCheck p@(Str _) = return (p, TString)
 
@@ -226,15 +214,7 @@ instance ITypeCheck Expr where
                 | rt == Unknown = (\rv' -> (Bin lv "=" rv', lt)) <$> update rv lt
                 | rt `isSubTypeOf` lt = return (Bin lv "=" rv, lt)
                 | otherwise = error "type mismatch at assingexpr"
-        {-
-        check <$> typeCheck l <*> typeCheck r
-        where
-            check (lv, lt) (rv, rt)
-                | rt `isSubTypeOf` lt = (Bin lv "=" rv, lt)
-                | otherwise = error "type mismatch at assignexpr"
-        -}
 
-    --typeCheck (Bin l "+" r) = check <$> typeCheck l <*> typeCheck r
     typeCheck (Bin l "+" r) = typeCheck r >>= checkLeft
         where
             checkLeft rvt = typeCheck l >>= check rvt
@@ -245,15 +225,6 @@ instance ITypeCheck Expr where
                 | any (isSubTypeOf lt) [TInt, TString] && any (isSubTypeOf rt) [TInt, TString] = return (Bin lv "+" rv, lt `union` rt)
                 | otherwise = error "type mismatch at addexpr"
 
-    {-
-    typeCheck (Bin l "==" r) = check <$> typeCheck l <*> typeCheck r
-        where
-            check (lv, lt) (rv, rt)
-                | lt == Unknown && lt = rt = error "unknown type at eqexpr"
-                | lt == Unknown = (Bin lv "==" rv, rt)
-                | rt `isSubTypeOf` lt = (Bin lv "==" rv, lt `union` rt)
-                | otherwise = error "type mismatch at eqexpr"
-    -}
     typeCheck (Bin l "==" r) = typeCheck r >>= checkLeft
         where
             checkLeft rvt = typeCheck l >>= check rvt
@@ -264,13 +235,6 @@ instance ITypeCheck Expr where
                 | rt `isSubTypeOf` lt || lt `isSubTypeOf` rt = return (Bin lv "==" rv, lt `union` rt)
                 | otherwise = error "type mismatch at eqexpr"
 
-    {-
-    typeCheck (Bin l x r) = check <$> typeCheck l <*> typeCheck r
-        where
-            check (lv, lt) (rv, rt)
-                | all (`isSubTypeOf` TInt) [lt, rt] = (Bin lv x rv, lt `union` rt)
-                | otherwise = error $ "type mismatch at bin: " `mappend` x
-            -}
     typeCheck (Bin l x r) = typeCheck r >>= checkLeft
         where
             checkLeft rvt = typeCheck l >>= check rvt

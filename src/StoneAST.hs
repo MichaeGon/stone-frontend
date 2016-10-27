@@ -11,11 +11,9 @@ import qualified Data.Map as M
 data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | While Expr [Stmt]
         | Single Expr
-        -- | Def String [String] [Stmt]
         | Def String [(String, Type)] Type [Stmt]
         | Class String (Maybe String) [Stmt]
         | Var String Type Expr
-        -- | Var String Expr
     deriving (Show, Eq)
 
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
