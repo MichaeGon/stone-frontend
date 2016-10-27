@@ -1,5 +1,5 @@
 name:                stone-frontend
-version:             0.8.0.1
+version:             0.9.0.0
 synopsis:            Initial project template from stack
 description:         Please see README.md
 homepage:            https://github.com/MichaeGon/stone-frontend#readme
@@ -16,16 +16,18 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     StoneFrontend
-  other-modules:       StoneLexer
-  build-depends:       base >= 4.7 && < 5, parsec, containers, compile-time-player
+  other-modules:       StoneAST, StoneLexer, TypeCheck
+  build-depends:       base >= 4.7 && < 5, parsec, containers, mtl
+  --, compile-time-player
   default-language:    Haskell2010
 
 executable ParserTest
   hs-source-dirs:      src
   main-is:             ParserTest.hs
-  other-modules:       StoneLexer, StoneFrontend
+  other-modules:       StoneAST, StoneLexer, StoneFrontend, TypeCheck
   default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5, parsec, containers, compile-time-player
+  build-depends:       base >= 4.7 && < 5, parsec, containers, mtl
+  --, compile-time-player
 
 source-repository head
   type:     git
