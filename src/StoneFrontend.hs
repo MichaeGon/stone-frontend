@@ -54,8 +54,7 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
         elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
         whilestmt = reserved' "while" *> (While <$> expr <*> block)
-        --variable = reserved' "var" *> (Var <$> (identifier' <* typetag) <*> (reservedOp' "=" *> expr))
-
+        
 variable :: Parser Stmt
 variable = reserved' "var" *> (Var <$> identifier' <*> typetag <*> (reservedOp' "=" *> expr))
 
