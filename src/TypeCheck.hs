@@ -1,5 +1,9 @@
 {-# LANGUAGE TupleSections #-}
-module TypeCheck where
+module TypeCheck
+    ( runTypeCheck
+    , ITypeCheck(..)
+    , EnvState
+    ) where
 
 import Control.Arrow ((&&&), (***), first)
 import Control.Monad
@@ -17,6 +21,9 @@ type EnvState = State Env
 class ITypeCheck a where
     typeCheck :: a -> EnvState (a, Type)
     update :: a -> Type -> EnvState a
+
+runTypeCheck :: [Stmt] -> [(Stmt, Type)]
+runTypeCheck xs = evalState (mapM typeCheck xs) singleton
 
 singleton :: Env
 singleton = [M.empty]
@@ -172,7 +179,7 @@ instance ITypeCheck Primary where
     typeCheck (Index prim xs) = check <$> typeCheck prim <*> typeCheck xs
         where
             check (as, TArray at) (n, nt)
-                | nt `isSubTypeOf` TInt = (Index as n, nt)
+                | nt `isSubTypeOf` TInt = (Index as n, at)
                 | otherwise = error $ "expect Int at index but: " `mappend` show nt
             check (_, t) _ = error $ "expect array at index but: " `mappend` show t
         {-

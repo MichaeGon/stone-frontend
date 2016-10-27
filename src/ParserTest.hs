@@ -4,9 +4,16 @@ import System.Environment
 import Text.Parsec
 
 import StoneFrontend
+import TypeCheck
 
 main :: IO ()
-main = getArgs >>= mapM_ (\x -> putStrLn x >> readFile x >>= parseTest program){-br . parseProgram)
+main = getArgs >>= mapM_ (\x -> putStrLn x >> readFile x >>= either print main' . parseProgram)
+    where
+        main' = mapM_ print . runTypeCheck
+
+--main = getArgs >>= mapM_ (\x -> putStrLn x >> readFile x >>= parseTest program)
+
+{-br . parseProgram)
     where
         br (Right x) = printAST x >> putStrLn ""
         br (Left x) = print x
