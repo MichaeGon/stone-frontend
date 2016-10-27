@@ -16,6 +16,7 @@ type EnvState = State Env
 
 class ITypeCheck a where
     typeCheck :: a -> EnvState (a, Type)
+    update :: a -> Type -> EnvState a
 
 singleton :: Env
 singleton = [M.empty]
@@ -130,6 +131,9 @@ instance ITypeCheck Primary where
     typeCheck p@(Num _) = return (p, TInt)
     typeCheck p@(Str _) = return (p, TString)
 
+    update p@(Id s) t = p <$ insertEnv s t
+    update _  _ = undefined
+
 
 instance ITypeCheck Expr where
     typeCheck (Pos prim) = first Pos <$> typeCheck prim
@@ -163,44 +167,78 @@ instance ITypeCheck Expr where
                 | all (`isSubTypeOf` TInt) [lt, rt] = (Bin lv x rv, lt `union` rt)
                 | otherwise = error $ "type mismatch at bin: " `mappend` x
 
+    update _ = undefined
+
 instance ITypeCheck Stmt where
     typeCheck (If c xs (Just e)) = check <$> typeCheck c <*> typeCheckBlock xs <*> typeCheckBlock e
         where
             check (cv, ct) (xvs, xt) (ev, et)
+                | xt == Unknown = error "unknown type at if body"
                 | ct `isSubTypeOf` TInt = (If cv xvs (Just ev), ct `union` xt `union` et)
                 | otherwise = error $ "expect Int at if condition but: " `mappend` show ct
     typeCheck (If c xs _) = check <$> typeCheck c <*> typeCheckBlock xs
         where
             check (cv, ct) (xvs, xt)
+                | xt == Unknown = error "unknown type at if body"
                 | ct `isSubTypeOf` TInt =  (If cv xvs Nothing, ct `union` xt)
                 | otherwise = error $ "expect Int at if condition but: " `mappend` show ct
     typeCheck (While c xs) = check <$> typeCheck c <*> typeCheckBlock xs
         where
             check (cv, ct) (xvs, xt)
+                | xt == Unknown = error "unknown type at while body"
                 | ct `isSubTypeOf` TInt = (While cv xvs, ct `union` xt)
                 | otherwise = error $ "expect Int at while condition but: " `mappend` show ct
 
     typeCheck (Def s xs t b) = evacEnv checkDup
                             >> push initLocalEnv
-                            >> checkBody
+                            >> build
         where
             checkDup = maybe () (error $ "duplicate definition: " `mappend` s) . lookup s <$> pop'
             initLocalEnv = foldl' (\acc (x, xt) -> insert x xt acc) singleton xs
-            checkBody = typeCheckBlock b >>= check
-            check (bv, bt)
-                | bt `isSubTypeOf` t = undefined
-                | otherwise = error "type mismatch at function"
+            build = typeCheckBlock b >>= build'
+                where
+                    build' rbs = pop' >>= check rbs
+            check (bv, bt) z = (Def s xs rt b, ft) <$ insertEnv s ft
+                where
+                    ft = TFunction rxs rt
+                    rt
+                        | t == Unknown && bt == t = TAny
+                        | t == Unknown = bt
+                        | bt == Unknown = t
+                        | bt `isSubTypeOf` t = t
+                        | otherwise = error "type mismatch at function"
+                    rxs = fmap ff xs
+                    ff (x, _)
+                        | rxt == Unknown = TAny
+                        | otherwise = rxt
+                        where
+                            rxt = fromJust $ lookup x z
 
-
-    typeCheck (Class s sc xs) = undefined
+    typeCheck (Class s sc xs) = maybe dv jf sc >>= build
+        where
+            dv = return ([], singleton)
+            jf super = maybe' ("not found super class: " `mappend` super)  jf' <$> lookupEnv super
+                where
+                    jf' (TClassTree x ss z) = (x : ss, z)
+            build (ss, z) = push z
+                        >> typeCheckBlock xs >>= checkEnv . fst
+                where
+                    checkEnv xs' = pop' >>= build' xs'
+                    build' xs' z' = (Class s sc xs', ct) <$ insertEnv s ct
+                        where
+                            ct = TClassTree s ss z'
 
     typeCheck (Var s t e) = evacEnv checkDup
                         >> typeCheck e >>= check
         where
             checkDup = maybe () (error $ "duplicate variable: " `mappend` s) . lookup s <$> pop'
             check (ev, et)
+                | t == Unknown && t == et = (Var s t ev, t) <$ (pop' >>= push . insert s t)
                 | t == Unknown = (Var s et ev, et) <$ (pop' >>= push . insert s et)
+                | et == Unknown = (Var s t ev, t) <$ (pop' >>= push . insert s t)
                 | et `isSubTypeOf` t = (Var s t ev, t) <$ (pop' >>= push . insert s t)
                 | otherwise = error "type mismatch at var"
 
     typeCheck (Single e) = first Single <$> typeCheck e
+
+    update _ = undefined
