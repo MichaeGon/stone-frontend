@@ -185,10 +185,11 @@ instance ITypeCheck Primary where
 
 instance ITypeCheck Expr where
     typeCheck (Pos prim) = first Pos <$> typeCheck prim
-    typeCheck (Neg prim) = check <$> typeCheck prim
+    typeCheck (Neg prim) = typeCheck prim >>= check
         where
             check (n, nt)
-                | nt `isSubTypeOf` TInt = (Neg n, nt)
+                | nt == Unknown = (Neg n, TInt) <$ update n TInt
+                | nt `isSubTypeOf` TInt = return (Neg n, nt)
                 | otherwise = error $ "expect Int at neg but: " `mappend` show nt
 
     typeCheck (Bin l "=" r) = typeCheck r >>= checkLeft
@@ -208,23 +209,51 @@ instance ITypeCheck Expr where
                 | otherwise = error "type mismatch at assignexpr"
         -}
 
-    typeCheck (Bin l "+" r) = check <$> typeCheck l <*> typeCheck r
+    --typeCheck (Bin l "+" r) = check <$> typeCheck l <*> typeCheck r
+    typeCheck (Bin l "+" r) = typeCheck r >>= checkLeft
         where
+            checkLeft rvt = typeCheck l >>= check rvt
             check (lv, lt) (rv, rt)
-                | any (isSubTypeOf lt) [TInt, TString] && any (isSubTypeOf rt) [TInt, TString] = (Bin lv "+" rv, lt `union` rt)
+                | lt == Unknown && lt == rt = (\lv' rv' -> (Bin lv' "+" rv', TInt)) <$> update lv TInt <*> update rv TInt
+                | lt == Unknown = (\lv' -> (Bin lv' "+" rv, TInt `union` rt)) <$> update lv TInt
+                | rt == Unknown = (\rv' -> (Bin lv "+" rv', lt `union` TInt)) <$> update rv TInt
+                | any (isSubTypeOf lt) [TInt, TString] && any (isSubTypeOf rt) [TInt, TString] = return (Bin lv "+" rv, lt `union` rt)
                 | otherwise = error "type mismatch at addexpr"
 
+    {-
     typeCheck (Bin l "==" r) = check <$> typeCheck l <*> typeCheck r
         where
             check (lv, lt) (rv, rt)
-                | lt `isSubTypeOf` rt = (Bin lv "==" rv, lt `union` rt)
+                | lt == Unknown && lt = rt = error "unknown type at eqexpr"
+                | lt == Unknown = (Bin lv "==" rv, rt)
+                | rt `isSubTypeOf` lt = (Bin lv "==" rv, lt `union` rt)
                 | otherwise = error "type mismatch at eqexpr"
+    -}
+    typeCheck (Bin l "==" r) = typeCheck r >>= checkLeft
+        where
+            checkLeft rvt = typeCheck l >>= check rvt
+            check (rv, rt) (lv, lt)
+                | lt == Unknown && lt == rt = return (Bin lv "==" rv, lt)
+                | lt == Unknown = (\lv' -> (Bin lv' "==" rv, rt)) <$> update lv rt
+                | rt == Unknown = (\rv' -> (Bin lv "==" rv', lt)) <$> update rv lt
+                | rt `isSubTypeOf` lt || lt `isSubTypeOf` rt = return (Bin lv "==" rv, lt `union` rt)
 
+    {-
     typeCheck (Bin l x r) = check <$> typeCheck l <*> typeCheck r
         where
             check (lv, lt) (rv, rt)
                 | all (`isSubTypeOf` TInt) [lt, rt] = (Bin lv x rv, lt `union` rt)
                 | otherwise = error $ "type mismatch at bin: " `mappend` x
+            -}
+    typeCheck (Bin l x r) = typeCheck r >>= checkLeft
+        where
+            checkLeft rvt = typeCheck l >>= check rvt
+            check (rv, rt) (lv, lt)
+                | lt == Unknown && lt == rt = (\lv' rv' -> (Bin lv' x rv', TInt)) <$> update lv TInt <*> update rv TInt
+                | lt == Unknown = (\lv' -> (Bin lv' x rv, TInt)) <$> update lv TInt
+                | rt == Unknown = (\rv' -> (Bin lv x rv', TInt)) <$> update rv TInt
+                | rt `isSubTypeOf` TInt && lt `isSubTypeOf` TInt = return (Bin lv x rv, lt `union` rt)
+                | otherwise = error $ "type mismatch at expr: " `mappend` x
 
     update e _ = return e
 
