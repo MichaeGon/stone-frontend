@@ -74,9 +74,19 @@ typeCheckBlock xs = edit <$> mapM typeCheck xs
     where
         edit = fmap fst &&& (snd . last)
 
+
+convertKey :: Type -> EnvState Type
+convertKey (TClassKey s) = fromMaybe (error $ "not found class: " `mappend` s) <$> lookupEnv s
+convertKey t = return t
+
 isSubTypeOf :: Type -> Type -> Bool
 Unknown `isSubTypeOf` _ = error "left unknown"
 _ `isSubTypeOf` Unknown = error "right unknown"
+
+TClassKey _ `isSubTypeOf` _ = error "left class key"
+_ `isSubTypeOf` TClassKey _ = error "right class key"
+
+TAny `isSubTypeOf` _ = True
 _ `isSubTypeOf` TAny = True
 
 TFunction xs xt `isSubTypeOf` TFunction ys yt
@@ -85,6 +95,8 @@ TFunction xs xt `isSubTypeOf` TFunction ys yt
 TArray x `isSubTypeOf` TArray y
                     = x `isSubTypeOf` y
 
+TClassTree xn xs _ `isSubTypeOf` TClassTree yn _ _
+                    = xn == yn || elem yn xs
 {-
 TClass xn xs `isSubTypeOf` TClass yn _
                     = xn == yn || elem yn xs
@@ -114,12 +126,13 @@ instance ITypeCheck Primary where
                     (xs', xts) = unzip xvts
             checkArgs = all (\(at, et) -> et == Unknown || et `isSubTypeOf` at)
 
-    typeCheck p@(Fun xs t b) = push initLocalEnv
+    typeCheck p@(Fun xs t' b) = initLocalEnv >>= push
                             >> typeCheckBlock b >>= build
         where
-            initLocalEnv = foldl' (\acc (x, xt) -> insert x xt acc) singleton xs
-            build xts = build' xts <$> pop'
-            build' (bv, bt) z = (Fun xs' rt bv, ft)
+            initLocalEnv = foldl' (\acc (x, xt) -> insert x <$> convertKey xt <*> acc) (return singleton) xs
+
+            build xts = build' xts <$> pop' <*> convertKey t'
+            build' (bv, bt) z t = (Fun xs' rt bv, ft)
                 where
                     xs' = zip (fst $ unzip xs) xts
                     ft = TFunction xts rt
@@ -237,6 +250,7 @@ instance ITypeCheck Expr where
                 | lt == Unknown = (\lv' -> (Bin lv' "==" rv, rt)) <$> update lv rt
                 | rt == Unknown = (\rv' -> (Bin lv "==" rv', lt)) <$> update rv lt
                 | rt `isSubTypeOf` lt || lt `isSubTypeOf` rt = return (Bin lv "==" rv, lt `union` rt)
+                | otherwise = error "type mismatch at eqexpr"
 
     {-
     typeCheck (Bin l x r) = check <$> typeCheck l <*> typeCheck r
@@ -277,16 +291,19 @@ instance ITypeCheck Stmt where
                 | ct `isSubTypeOf` TInt = (While cv xvs, ct `union` xt)
                 | otherwise = error $ "expect Int at while condition but: " `mappend` show ct
 
-    typeCheck (Def s xs t b) = evacEnv checkDup
-                            >> push initLocalEnv
+    typeCheck (Def s xs t' b) = evacEnv checkDup
+                            >> initLocalEnv >>= push
                             >> build
         where
             checkDup = maybe () (error $ "duplicate definition: " `mappend` s) . lookup s <$> pop'
-            initLocalEnv = foldl' (\acc (x, xt) -> insert x xt acc) singleton xs
+
+            initLocalEnv = foldl' (\acc (x, xt) -> insert x <$> convertKey xt <*> acc) (return singleton) xs
+
             build = typeCheckBlock b >>= build'
                 where
                     build' rbs = pop' >>= check rbs
-            check (bv, bt) z = (Def s xs' rt bv, ft) <$ insertEnv s ft
+            check rbs z = convertKey t' >>= check' rbs z
+            check' (bv, bt) z t = (Def s xs' rt bv, ft) <$ insertEnv s ft
                 where
                     xs' = zip (fst $ unzip xs) rxs
                     ft = TFunction rxs rt
@@ -317,11 +334,12 @@ instance ITypeCheck Stmt where
                         where
                             ct = TClassTree s ss z'
 
-    typeCheck (Var s t e) = evacEnv checkDup
+    typeCheck (Var s t' e) = evacEnv checkDup
                         >> typeCheck e >>= check
         where
             checkDup = maybe () (error $ "duplicate variable: " `mappend` s) . lookup s <$> pop'
-            check (ev, et)
+            check evt = convertKey t' >>= check' evt
+            check' (ev, et) t
                 | t == Unknown && t == et = (Var s t ev, t) <$ (pop' >>= push . insert s t)
                 | t == Unknown = (Var s et ev, et) <$ (pop' >>= push . insert s et)
                 | et == Unknown = (Var s t ev, t) <$ (pop' >>= push . insert s t)
