@@ -77,8 +77,13 @@ evacEnv x = get >>= (x >>=) . ($>) . put
 
 typeCheckBlock :: (ITypeCheck a) => [a] -> EnvState ([a], Type)
 typeCheckBlock [] = return ([], Unknown)
-typeCheckBlock xs = edit <$> mapM typeCheck xs
+typeCheckBlock xs = edit <$> mapM ff xs
     where
+        ff x = typeCheck x >>= check
+            where
+                check (xv, xt)
+                    | xt == Unknown = return (xv, xt)
+                    | otherwise = (,xt) <$> update xv xt
         edit = fmap fst &&& (snd . last)
 
 
@@ -276,7 +281,9 @@ instance ITypeCheck Expr where
                 | rt `isSubTypeOf` TInt && lt `isSubTypeOf` TInt = return (Bin lv x rv, lt `union` rt)
                 | otherwise = error $ "type mismatch at expr: " `mappend` x
 
-    update e _ = return e
+    update (Pos p) t = Pos <$> update p t
+    update (Neg p) t = Pos <$> update p t
+    update p _ = return p
 
 instance ITypeCheck Stmt where
     typeCheck (If c xs (Just e)) = check <$> typeCheck c <*> typeCheckBlock xs <*> typeCheckBlock e
