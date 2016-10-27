@@ -101,19 +101,61 @@ union x y
     | otherwise = TAny
 
 instance ITypeCheck Primary where
+    typeCheck (Paren e) = first Paren <$> typeCheck e
+
     typeCheck p@(Id s) = maybe' ("undefined identifier: " `mappend` s) (p,) <$> lookupEnv s
 
     typeCheck (DefApp prim xs) = check <$> typeCheck prim <*> mapM typeCheck xs
         where
-            check = undefined
+            check (p, TFunction ats rt) xvts
+                | length ats == length xvts && checkArgs (zip ats xts) = (DefApp p xs', rt)
+                | otherwise = error "type mismatch at function call"
+                where
+                    (xs', xts) = unzip xvts
+            checkArgs = all (\(at, et) -> et == Unknown || et `isSubTypeOf` at)
 
-    typeCheck p@(Fun xs t b) = error "undefined defapp "
-    typeCheck p@(Dot prim x) = error "undefined dot"
+    typeCheck p@(Fun xs t b) = push initLocalEnv
+                            >> typeCheckBlock b >>= build
+        where
+            initLocalEnv = foldl' (\acc (x, xt) -> insert x xt acc) singleton xs
+            build xts = build' xts <$> pop'
+            build' (bv, bt) z = (Fun xs' rt bv, ft)
+                where
+                    xs' = zip (fst $ unzip xs) xts
+                    ft = TFunction xts rt
+                    rt
+                        | t == Unknown && t == bt = TAny
+                        | t == Unknown = bt
+                        | bt == Unknown = t
+                        | bt `isSubTypeOf` t = t
+                        | otherwise = error "type mismatch at closure"
+                    xts = fmap ff xs
+                    ff (x, _)
+                        | rxt == Unknown = TAny
+                        | otherwise = rxt
+                        where
+                            rxt = fromJust $ lookup x z
+
+    typeCheck (Dot p "new") = check <$> typeCheck p
+        where
+            check (cv, ct) = (Dot cv "new", ct)
+
+    typeCheck p@(Dot (Id "this") x) = evacEnv getField
+        where
+            getField = maybe' ("not found field: this." `mappend` x) (p,) . lookup x <$> pop'
+
+    typeCheck (Dot p x) = check <$> typeCheck p
+        where
+            check (obj, TClassTree _ _ z) = maybe' ("not found field: " `mappend` x) (Dot obj x,) $ lookup x z
+
     typeCheck (Array xs) = edit <$> mapM typeCheck xs
         where
             edit [] = (Array xs, TArray Unknown)
-            edit ys = (Array *** (TArray . last)) $ unzip ys
+            edit ys = (Array *** (TArray . unions . filter (/= Unknown))) $ unzip ys
         --TArray . foldl' union Unknown <$> mapM typeCheck xs
+            unions [] = Unknown
+            unions ys = foldl1' union ys
+
     typeCheck (Index prim xs) = check <$> typeCheck prim <*> typeCheck xs
         where
             check (as, TArray at) (n, nt)
@@ -132,7 +174,13 @@ instance ITypeCheck Primary where
     typeCheck p@(Str _) = return (p, TString)
 
     update p@(Id s) t = p <$ insertEnv s t
-    update _  _ = undefined
+    update (Paren e) t = Paren <$> update e t
+    update (Index p n) t = flip Index n <$> update p (TArray t)
+    update p@(Dot (Id "this") x) t = p <$ (pop' >>= push . insert x t)
+    update (Dot p x) t = typeCheck p >>= update'
+        where
+            update' (obj, TClassTree s ss z) = Dot obj x <$ (insertEnv s . TClassTree s ss $ insert x t z )
+    update p _ = return p
 
 
 instance ITypeCheck Expr where
@@ -143,11 +191,22 @@ instance ITypeCheck Expr where
                 | nt `isSubTypeOf` TInt = (Neg n, nt)
                 | otherwise = error $ "expect Int at neg but: " `mappend` show nt
 
-    typeCheck (Bin l "=" r) = check <$> typeCheck l <*> typeCheck r
+    typeCheck (Bin l "=" r) = typeCheck r >>= checkLeft
+        where
+            checkLeft rvt = typeCheck l >>= check rvt
+            check (rv, rt) (lv, lt)
+                | lt == Unknown && rt == lt = return (Bin lv "=" rv, lt)
+                | lt == Unknown = (\lv' -> (Bin lv' "=" rv, rt)) <$> update lv rt
+                | rt == Unknown = (\rv' -> (Bin lv "=" rv', lt)) <$> update rv lt
+                | rt `isSubTypeOf` lt = return (Bin lv "=" rv, lt)
+                | otherwise = error "type mismatch at assingexpr"
+        {-
+        check <$> typeCheck l <*> typeCheck r
         where
             check (lv, lt) (rv, rt)
                 | rt `isSubTypeOf` lt = (Bin lv "=" rv, lt)
                 | otherwise = error "type mismatch at assignexpr"
+        -}
 
     typeCheck (Bin l "+" r) = check <$> typeCheck l <*> typeCheck r
         where
@@ -167,7 +226,7 @@ instance ITypeCheck Expr where
                 | all (`isSubTypeOf` TInt) [lt, rt] = (Bin lv x rv, lt `union` rt)
                 | otherwise = error $ "type mismatch at bin: " `mappend` x
 
-    update _ = undefined
+    update e _ = return e
 
 instance ITypeCheck Stmt where
     typeCheck (If c xs (Just e)) = check <$> typeCheck c <*> typeCheckBlock xs <*> typeCheckBlock e
@@ -198,8 +257,9 @@ instance ITypeCheck Stmt where
             build = typeCheckBlock b >>= build'
                 where
                     build' rbs = pop' >>= check rbs
-            check (bv, bt) z = (Def s xs rt b, ft) <$ insertEnv s ft
+            check (bv, bt) z = (Def s xs' rt bv, ft) <$ insertEnv s ft
                 where
+                    xs' = zip (fst $ unzip xs) rxs
                     ft = TFunction rxs rt
                     rt
                         | t == Unknown && bt == t = TAny
@@ -241,4 +301,4 @@ instance ITypeCheck Stmt where
 
     typeCheck (Single e) = first Single <$> typeCheck e
 
-    update _ = undefined
+    update x _ = return x
