@@ -3,10 +3,8 @@ module StoneFrontend
     , Expr(..)
     , Stmt(..)
     , Type(..)
-    --, Env
     , parseProgram
     , parseProgramWithTypeCheck
-    --, program
     ) where
 
 import StoneAST
@@ -15,7 +13,6 @@ import TypeCheck
 
 import Control.Monad
 import Text.Parsec hiding (Parser)
---import Text.Parsec.String
 import Text.Parsec.Token
 
 parseProgram :: String -> Either ParseError [Stmt]

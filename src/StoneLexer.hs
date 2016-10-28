@@ -9,7 +9,6 @@ import Text.Parsec.Language
 import Text.Parsec.Token
 
 import StoneAST (Env)
--- import CompileAssistant
 
 stoneDef :: LanguageDef Env
 stoneDef = emptyDef
