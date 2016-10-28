@@ -8,9 +8,10 @@ import Text.Parsec.Char
 import Text.Parsec.Language
 import Text.Parsec.Token
 
+import StoneAST (Env)
 -- import CompileAssistant
 
-stoneDef :: LanguageDef ()
+stoneDef :: LanguageDef Env
 stoneDef = emptyDef
     { commentLine = "//"
     , identStart = letter
@@ -19,5 +20,5 @@ stoneDef = emptyDef
     , reservedOpNames = ["=", "==", ">", "<", "+", "-", "*", "/", "%", ".", ";", "[", "]", ":"]
     }
 
-lexer :: TokenParser ()
+lexer :: TokenParser Env
 lexer = makeTokenParser stoneDef

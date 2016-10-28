@@ -1,8 +1,10 @@
 {-# LANGUAGE TupleSections #-}
 module TypeCheck
-    ( runTypeCheck
-    , ITypeCheck(..)
-    , EnvState
+    ( --runTypeCheck
+    {-,-} ITypeCheck(..)
+    --, EnvState
+    , Parser
+    , singleton
     ) where
 
 import Control.Arrow ((&&&), (***), first)
@@ -12,24 +14,28 @@ import Data.Functor (($>))
 import Data.List (foldl', foldl1')
 import Data.Maybe
 import Prelude hiding (lookup)
+import Text.Parsec hiding (State, Parser)
 import qualified Data.Map as M
 
 import StoneAST
 
-type EnvState = State Env
+type Parser = Parsec String Env
+
+--type EnvState = State Env
 
 class ITypeCheck a where
-    typeCheck :: a -> EnvState (a, Type)
-    update :: a -> Type -> EnvState a
+    typeCheck :: a -> Parser (a, Type)--EnvState (a, Type)
+    update :: a -> Type -> Parser a -- EnvState a
 
 runTypeCheck :: [Stmt] -> [(Stmt, Type)]
-runTypeCheck xs = evalState (mapM typeCheck xs) singleton
+runTypeCheck xs = undefined--runParser (mapM typeCheck xs) singleton
+    --evalState (mapM typeCheck xs) singleton
 
 singleton :: Env
 singleton = [M.empty]
 
-insertEnv :: String -> Type -> EnvState ()
-insertEnv k v = get >>= put . insert k v
+insertEnv :: String -> Type -> Parser ()--EnvState ()
+insertEnv k v = getState >>= putState . insert k v
 
 insert :: String -> Type -> Env -> Env
 insert k v xxs@(x : xs)
@@ -43,39 +49,39 @@ insert k v xxs@(x : xs)
 
 insert _ _ _ = error "insert: empty type environment"
 
-lookupEnv :: String -> EnvState (Maybe Type)
-lookupEnv k = lookup k  <$> get
+lookupEnv :: String -> Parser (Maybe Type) -- EnvState (Maybe Type)
+lookupEnv k = lookup k  <$> getState
 
 lookup :: String -> Env -> Maybe Type
 lookup k (x : xs) = maybe (lookup k xs) return $ M.lookup k x
 lookup _ _ = Nothing
 
-pop :: EnvState (Maybe Env)
-pop = get >>= modf
+pop :: Parser (Maybe Env) --EnvState (Maybe Env)
+pop = getState >>= modf
     where
-        modf :: Env -> EnvState (Maybe Env)
-        modf (x : xs) = return [x] <$ put xs
+        modf :: Env -> Parser (Maybe Env) --EnvState (Maybe Env)
+        modf (x : xs) = return [x] <$ putState xs
         modf _ = return Nothing
 
-pop' :: EnvState Env
+pop' :: Parser Env -- EnvState Env
 pop' = fromJust <$> pop
 
-push :: Env -> EnvState ()
-push = modify . mappend
+push :: Env -> Parser () -- EnvState ()
+push = modifyState . mappend
 
-lengthEnv :: EnvState Int
-lengthEnv = length <$> get
+lengthEnv :: Parser Int -- EnvState Int
+lengthEnv = length <$> getState
 
-splitEnvAt :: Int -> EnvState (Env, Env)
-splitEnvAt n = splitAt n <$> get
+splitEnvAt :: Int -> Parser (Env, Env) --EnvState (Env, Env)
+splitEnvAt n = splitAt n <$> getState
 
 maybe' :: String -> (a -> b) -> Maybe a -> b
 maybe' = maybe . error
 
-evacEnv :: EnvState a -> EnvState a
-evacEnv x = get >>= (x >>=) . ($>) . put
+evacEnv :: Parser a -> Parser a --EnvState a -> EnvState a
+evacEnv x = getState >>= (x >>=) . ($>) . putState
 
-typeCheckBlock :: (ITypeCheck a) => [a] -> EnvState ([a], Type)
+typeCheckBlock :: (ITypeCheck a) => [a] -> Parser ([a], Type) --EnvState ([a], Type)
 typeCheckBlock [] = return ([], Unknown)
 typeCheckBlock xs = edit <$> mapM ff xs
     where
@@ -87,7 +93,7 @@ typeCheckBlock xs = edit <$> mapM ff xs
         edit = fmap fst &&& (snd . last)
 
 
-convertKey :: Type -> EnvState Type
+convertKey :: Type -> Parser Type -- EnvState Type
 convertKey (TClassKey s) = fromMaybe (error $ "not found class: " `mappend` s) <$> lookupEnv s
 convertKey t = return t
 
