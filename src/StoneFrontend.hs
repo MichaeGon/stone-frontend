@@ -2,6 +2,8 @@ module StoneFrontend
     ( Primary(..)
     , Expr(..)
     , Stmt(..)
+    , Type(..)
+    , Env
     , parseProgram
     , program
     ) where
@@ -54,7 +56,7 @@ stmt = choice
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
         elsestmt = reserved' "else" *> (((:[]) <$> ifstmt) <|> block)
         whilestmt = reserved' "while" *> (While <$> expr <*> block)
-        
+
 variable :: Parser Stmt
 variable = reserved' "var" *> (Var <$> identifier' <*> typetag <*> (reservedOp' "=" *> expr))
 
