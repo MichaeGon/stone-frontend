@@ -25,6 +25,17 @@ while i < 10 {
 even + odd
 //
 
+def fib (n) {
+    if n < 2 {
+        n
+    }
+    else {
+        fib (n - 1) + fib (n - 2)
+    }
+}
+
+fib(10)
+
 
 def count(c) {
     fun () {c = c + 1}
