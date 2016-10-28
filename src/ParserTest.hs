@@ -7,6 +7,4 @@ import StoneFrontend
 import TypeCheck
 
 main :: IO ()
-main = getArgs >>= mapM_ (\x -> putStrLn x >> readFile x >>= either print main' . parseProgram)
-    where
-        main' = mapM_ print . runTypeCheck
+main = getArgs >>= mapM_ (readFile >=> either print (mapM_ print) . parseProgramWithTypeCheck)
