@@ -3,7 +3,7 @@ module StoneFrontend
     , Expr(..)
     , Stmt(..)
     , Type(..)
-    , Env
+    --, Env
     , parseProgram
     , parseProgramWithTypeCheck
     --, program
