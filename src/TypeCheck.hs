@@ -129,7 +129,7 @@ instance ITypeCheck Primary where
                 | otherwise = unexpected "type mismatch at function call"
                 where
                     (xs', xts) = unzip xvts
-            checkArgs = all (\(at, et) -> et == Unknown || et `isSubTypeOf` at)
+            checkArgs = all (\(at, et) -> et == Unknown || at == Unknown ||  et `isSubTypeOf` at)
 
     typeCheck (Fun xs t b) = initLocalEnv >>= push
                         >> typeCheckBlock b >>= build
@@ -195,6 +195,7 @@ instance ITypeCheck Primary where
     update (Dot p x) t = typeCheck p >>= update'
         where
             update' (obj, TClassTree s ss z) = Dot obj x <$ (insertEnv s . TClassTree s ss $ insert x t z )
+    --update (DefApp p xs) t = error "undefined defapp update"
     update p _ = return p
 
 
@@ -276,6 +277,7 @@ instance ITypeCheck Stmt where
                 | otherwise = unexpected $ "expect Int at while condition but: " `mappend` show ct
 
     typeCheck (Def s xs t' b) = evacEnv checkDup
+                            >> convertKey t' >>= insertEnv s . TFunction (fmap snd xs)
                             >> initLocalEnv >>= push
                             >> build
         where
