@@ -5,23 +5,30 @@ module StoneFrontend
     , Type(..)
     , Env
     , parseProgram
-    , program
+    , parseProgramWithTypeCheck
+    --, program
     ) where
 
 import StoneAST
 import StoneLexer
-import TypeCheck ()
+import TypeCheck
 
 import Control.Monad
-import Text.Parsec
-import Text.Parsec.String
+import Text.Parsec hiding (Parser)
+--import Text.Parsec.String
 import Text.Parsec.Token
 
 parseProgram :: String -> Either ParseError [Stmt]
-parseProgram = parse program ""
+parseProgram = runParser program singleton ""
+
+parseProgramWithTypeCheck :: String -> Either ParseError [(Stmt, Type)]
+parseProgramWithTypeCheck = runParser programWithTypeCheck singleton ""
 
 program :: Parser [Stmt]
 program = whiteSpace' *> many program' <* eof
+
+programWithTypeCheck :: Parser [(Stmt, Type)]
+programWithTypeCheck = whiteSpace' *> many (program' >>= typeCheck) <* eof
 
 program' :: Parser Stmt
 program' = sep *> stmt' <* sep
