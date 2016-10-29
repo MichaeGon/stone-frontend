@@ -68,7 +68,7 @@ splitEnvAt :: Int -> Parser (Env, Env)
 splitEnvAt n = splitAt n <$> getState
 
 maybe' :: String -> (a -> Parser b) -> Maybe a -> Parser b
-maybe' = maybe . unexpected
+maybe' = maybe . fail
 
 evacEnv :: Parser a -> Parser a
 evacEnv x = getState >>= (x >>=) . ($>) . putState
@@ -126,7 +126,7 @@ instance ITypeCheck Primary where
             checkFunc xvts = typeCheck prim >>= check xvts
             check xvts (p, TFunction ats rt)
                 | length ats == length xvts && checkArgs (zip ats xts) = return (DefApp p xs', rt)
-                | otherwise = unexpected "type mismatch at function call"
+                | otherwise = fail "type mismatch at function call"
                 where
                     (xs', xts) = unzip xvts
             checkArgs = all (\(at, et) -> et == Unknown || at == Unknown ||  et `isSubTypeOf` at)
@@ -149,7 +149,7 @@ instance ITypeCheck Primary where
                         | t' == Unknown = return bt
                         | bt == Unknown = return t'
                         | bt `isSubTypeOf` t' = return t'
-                        | otherwise = unexpected "type mismatch at closure"
+                        | otherwise = fail "type mismatch at closure"
                     xts = fmap ff xs
                     ff (x, _)
                         | rxt == Unknown = TAny
@@ -181,8 +181,8 @@ instance ITypeCheck Primary where
             checkArray nvts = typeCheck prim >>= check nvts
             check (n, nt) (as, TArray at)
                 | nt `isSubTypeOf` TInt = return (Index as n, at)
-                | otherwise = unexpected $ "expect Int at index but: " `mappend` show nt
-            check (_, t) _ = unexpected $ "expect array at index but: " `mappend` show t
+                | otherwise = fail $ "expect Int at index but: " `mappend` show nt
+            check (_, t) _ = fail $ "expect array at index but: " `mappend` show t
 
 
     typeCheck p@(Num _) = return (p, TInt)
@@ -206,7 +206,7 @@ instance ITypeCheck Expr where
             check (n, nt)
                 | nt == Unknown = (Neg n, TInt) <$ update n TInt
                 | nt `isSubTypeOf` TInt = return (Neg n, nt)
-                | otherwise = unexpected $ "expect Int at neg but: " `mappend` show nt
+                | otherwise = fail $ "expect Int at neg but: " `mappend` show nt
 
     typeCheck (Bin l "=" r) = typeCheck r >>= checkLeft
         where
@@ -216,7 +216,7 @@ instance ITypeCheck Expr where
                 | lt == Unknown = (\lv' -> (Bin lv' "=" rv, rt)) <$> update lv rt
                 | rt == Unknown = (\rv' -> (Bin lv "=" rv', lt)) <$> update rv lt
                 | rt `isSubTypeOf` lt = return (Bin lv "=" rv, lt)
-                | otherwise = unexpected "type mismatch at assingexpr"
+                | otherwise = fail "type mismatch at assingexpr"
 
     typeCheck (Bin l "+" r) = typeCheck r >>= checkLeft
         where
@@ -226,7 +226,7 @@ instance ITypeCheck Expr where
                 | lt == Unknown = (\lv' -> (Bin lv' "+" rv, TInt `union` rt)) <$> update lv TInt
                 | rt == Unknown = (\rv' -> (Bin lv "+" rv', lt `union` TInt)) <$> update rv TInt
                 | any (isSubTypeOf lt) [TInt, TString] && any (isSubTypeOf rt) [TInt, TString] = return (Bin lv "+" rv, lt `union` rt)
-                | otherwise = unexpected "type mismatch at addexpr"
+                | otherwise = fail "type mismatch at addexpr"
 
     typeCheck (Bin l "==" r) = typeCheck r >>= checkLeft
         where
@@ -236,7 +236,7 @@ instance ITypeCheck Expr where
                 | lt == Unknown = (\lv' -> (Bin lv' "==" rv, rt)) <$> update lv rt
                 | rt == Unknown = (\rv' -> (Bin lv "==" rv', lt)) <$> update rv lt
                 | rt `isSubTypeOf` lt || lt `isSubTypeOf` rt = return (Bin lv "==" rv, lt `union` rt)
-                | otherwise = unexpected "type mismatch at eqexpr"
+                | otherwise = fail "type mismatch at eqexpr"
 
     typeCheck (Bin l x r) = typeCheck r >>= checkLeft
         where
@@ -246,7 +246,7 @@ instance ITypeCheck Expr where
                 | lt == Unknown = (\lv' -> (Bin lv' x rv, TInt)) <$> update lv TInt
                 | rt == Unknown = (\rv' -> (Bin lv x rv', TInt)) <$> update rv TInt
                 | rt `isSubTypeOf` TInt && lt `isSubTypeOf` TInt = return (Bin lv x rv, lt `union` rt)
-                | otherwise = unexpected $ "type mismatch at expr: " `mappend` x
+                | otherwise = fail $ "type mismatch at expr: " `mappend` x
 
     update (Pos p) t = Pos <$> update p t
     update (Neg p) t = Pos <$> update p t
@@ -258,30 +258,30 @@ instance ITypeCheck Stmt where
             checkBody cvt = typeCheckBlock xs >>= checkElse cvt
             checkElse cvt xvts = typeCheckBlock e >>= check cvt xvts
             check (cv, ct) (xvs, xt) (ev, et)
-                | xt == Unknown = unexpected "unknown type at if body"
+                | xt == Unknown = fail "unknown type at if body"
                 | ct `isSubTypeOf` TInt = return (If cv xvs (Just ev), ct `union` xt `union` et)
-                | otherwise = unexpected  $ "expect Int at if condition but: " `mappend` show ct
+                | otherwise = fail  $ "expect Int at if condition but: " `mappend` show ct
     typeCheck (If c xs _) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
-                | xt == Unknown = unexpected  "unknown type at if body"
+                | xt == Unknown = fail  "unknown type at if body"
                 | ct `isSubTypeOf` TInt =  return (If cv xvs Nothing, ct `union` xt)
-                | otherwise = unexpected $ "expect Int at if condition but: " `mappend` show ct
+                | otherwise = fail $ "expect Int at if condition but: " `mappend` show ct
     typeCheck (While c xs) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
-                | xt == Unknown = unexpected "unknown type at while body"
+                | xt == Unknown = fail "unknown type at while body"
                 | ct `isSubTypeOf` TInt = return (While cv xvs, ct `union` xt)
-                | otherwise = unexpected $ "expect Int at while condition but: " `mappend` show ct
+                | otherwise = fail $ "expect Int at while condition but: " `mappend` show ct
 
     typeCheck (Def s xs t' b) = evacEnv checkDup
                             >> convertKey t' >>= insertEnv s . TFunction (fmap snd xs)
                             >> initLocalEnv >>= push
                             >> build
         where
-            checkDup = pop' >>= maybe (return ()) (const (unexpected $ "duplicate definition: " `mappend` s)) . lookup s
+            checkDup = pop' >>= maybe (return ()) (const (fail $ "duplicate definition: " `mappend` s)) . lookup s
 
             initLocalEnv = foldl' (\acc (x, xt) -> insert x <$> convertKey xt <*> acc) (return singleton) xs
 
@@ -300,7 +300,7 @@ instance ITypeCheck Stmt where
                         | t == Unknown = return bt
                         | bt == Unknown = return t
                         | bt `isSubTypeOf` t = return t
-                        | otherwise = unexpected "type mismatch at function"
+                        | otherwise = fail "type mismatch at function"
                     rxs = fmap ff xs
                     ff (x, _)
                         | rxt == Unknown = TAny
@@ -325,14 +325,14 @@ instance ITypeCheck Stmt where
     typeCheck (Var s t' e) = evacEnv checkDup
                         >> typeCheck e >>= check
         where
-            checkDup = pop' >>= maybe (return ()) (const (unexpected $ "duplicate variable: " `mappend` s)) . lookup s
+            checkDup = pop' >>= maybe (return ()) (const (fail $ "duplicate variable: " `mappend` s)) . lookup s
             check evt = convertKey t' >>= check' evt
             check' (ev, et) t
                 | t == Unknown && t == et = (Var s t ev, t) <$ (pop' >>= push . insert s t)
                 | t == Unknown = (Var s et ev, et) <$ (pop' >>= push . insert s et)
                 | et == Unknown = (Var s t ev, t) <$ (pop' >>= push . insert s t)
                 | et `isSubTypeOf` t = (Var s t ev, t) <$ (pop' >>= push . insert s t)
-                | otherwise = unexpected "type mismatch at var"
+                | otherwise = fail "type mismatch at var"
 
     typeCheck (Single e) = first Single <$> typeCheck e
 
