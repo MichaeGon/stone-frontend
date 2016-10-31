@@ -46,8 +46,12 @@ lookupEnv :: String -> Parser (Maybe Type)
 lookupEnv k = lookup k  <$> getState
 
 lookup :: String -> Env -> Maybe Type
+lookup k = getFirst . foldl' (\acc -> mappend acc . First . M.lookup k) mempty
+    --getFirst . mconcat . fmap (First . M.lookup k)
+{-
 lookup k (x : xs) = maybe (lookup k xs) return $ M.lookup k x
 lookup _ _ = Nothing
+-}
 
 pop :: Parser (Maybe Env)
 pop = getState >>= modf
@@ -120,7 +124,7 @@ union x y
 instance ITypeCheck Primary where
     typeCheck (Paren e) = first Paren <$> typeCheck e
 
-    typeCheck p@(Id s) = lookupEnv s >>= maybe' ("undefined identifier: " `mappend` s) (return . (p,))
+    typeCheck p@(Id s) = lookupEnv s >>= maybe' ("undefined identifier: " <> s) (return . (p,))
 
     typeCheck (DefApp prim xs) = mapM typeCheck xs >>= checkFunc
         where
@@ -164,10 +168,10 @@ instance ITypeCheck Primary where
 
     typeCheck p@(Dot (Id "this") x) = evacEnv getField
         where
-            getField = pop' >>= maybe' ("not found field: this." `mappend` x) (return . (p,)) . lookup x
+            getField = pop' >>= maybe' ("not found field: this." <> x) (return . (p,)) . lookup x
     typeCheck (Dot p x) = typeCheck p >>= check
         where
-            check (obj, TClassTree _ _ z) = maybe' ("not found field: " `mappend` x) (return . (Dot obj x,)) $ lookup x z
+            check (obj, TClassTree _ _ z) = maybe' ("not found field: " <> x) (return . (Dot obj x,)) $ lookup x z
 
     typeCheck (Array xs) = edit <$> mapM typeCheck xs
         where
@@ -182,8 +186,8 @@ instance ITypeCheck Primary where
             checkArray nvts = typeCheck prim >>= check nvts
             check (n, nt) (as, TArray at)
                 | nt `isSubTypeOf` TInt = return (Index as n, at)
-                | otherwise = fail $ "Type Error: expect Int at index but: " `mappend` show nt
-            check (_, t) _ = fail $ "Type Error: expect array at index but: " `mappend` show t
+                | otherwise = fail $ "Type Error: expect Int at index but: " <> show nt
+            check (_, t) _ = fail $ "Type Error: expect array at index but: " <> show t
 
 
     typeCheck p@(Num _) = return (p, TInt)
@@ -207,7 +211,7 @@ instance ITypeCheck Expr where
             check (n, nt)
                 | nt == Unknown = (Neg n, TInt) <$ update n TInt
                 | nt `isSubTypeOf` TInt = return (Neg n, nt)
-                | otherwise = fail $ "Type Error: expect Int at negative but: " `mappend` show nt
+                | otherwise = fail $ "Type Error: expect Int at negative but: " <> show nt
 
     typeCheck (Bin l "=" r) = typeCheck r >>= checkLeft
         where
@@ -247,7 +251,7 @@ instance ITypeCheck Expr where
                 | lt == Unknown = (\lv' -> (Bin lv' x rv, TInt)) <$> update lv TInt
                 | rt == Unknown = (\rv' -> (Bin lv x rv', TInt)) <$> update rv TInt
                 | rt `isSubTypeOf` TInt && lt `isSubTypeOf` TInt = return (Bin lv x rv, lt `union` rt)
-                | otherwise = fail $ "Type Error: at expr: " `mappend` x
+                | otherwise = fail $ "Type Error: at expr: " <> x
 
     update (Pos p) t = Pos <$> update p t
     update (Neg p) t = Pos <$> update p t
@@ -261,28 +265,28 @@ instance ITypeCheck Stmt where
             check (cv, ct) (xvs, xt) (ev, et)
                 | xt == Unknown = fail "Type Error: unknown type at if body"
                 | ct `isSubTypeOf` TInt = return (If cv xvs (Just ev), ct `union` xt `union` et)
-                | otherwise = fail  $ "Type Error: expect Int at if condition but: " `mappend` show ct
+                | otherwise = fail  $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (If c xs _) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
                 | xt == Unknown = fail "Type Error: unknown type at if body"
                 | ct `isSubTypeOf` TInt =  return (If cv xvs Nothing, ct `union` xt)
-                | otherwise = fail $ "Type Error: expect Int at if condition but: " `mappend` show ct
+                | otherwise = fail $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (While c xs) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
                 | xt == Unknown = fail "Type Error: unknown type at while body"
                 | ct `isSubTypeOf` TInt = return (While cv xvs, ct `union` xt)
-                | otherwise = fail $ "Type Error: expect Int at while condition but: " `mappend` show ct
+                | otherwise = fail $ "Type Error: expect Int at while condition but: " <> show ct
 
     typeCheck (Def s xs t' b) = evacEnv checkDup
                             >> convertKey t' >>= insertEnv s . TFunction (fmap snd xs)
                             >> initLocalEnv >>= push
                             >> build
         where
-            checkDup = pop' >>= maybe (return ()) (const (fail $ "duplicate definition: " `mappend` s)) . lookup s
+            checkDup = pop' >>= maybe (return ()) (const (fail $ "duplicate definition: " <> s)) . lookup s
 
             initLocalEnv = foldl' (\acc (x, xt) -> insert x <$> convertKey xt <*> acc) (return singleton) xs
 
@@ -312,7 +316,7 @@ instance ITypeCheck Stmt where
     typeCheck (Class s sc xs) = maybe dv jf sc >>= build
         where
             dv = return ([], singleton)
-            jf super = lookupEnv super >>= maybe' ("not found super class: " `mappend` super)  jf'
+            jf super = lookupEnv super >>= maybe' ("not found super class: " <> super)  jf'
                 where
                     jf' (TClassTree x ss z) = return (x : ss, z)
             build (ss, z) = push z
@@ -326,7 +330,7 @@ instance ITypeCheck Stmt where
     typeCheck (Var s t' e) = evacEnv checkDup
                         >> typeCheck e >>= check
         where
-            checkDup = pop' >>= maybe (return ()) (const (fail $ "duplicate variable: " `mappend` s)) . lookup s
+            checkDup = pop' >>= maybe (return ()) (const (fail $ "duplicate variable: " <> s)) . lookup s
             check evt = convertKey t' >>= check' evt
             check' (ev, et) t
                 | t == Unknown && t == et = (Var s t ev, t) <$ (pop' >>= push . insert s t)
