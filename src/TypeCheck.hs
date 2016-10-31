@@ -11,6 +11,7 @@ import Control.Monad.State
 import Data.Functor (($>))
 import Data.List (foldl', foldl1')
 import Data.Maybe
+import Data.Monoid
 import Prelude hiding (lookup)
 import Text.Parsec hiding (State, Parser)
 import qualified Data.Map as M
@@ -86,7 +87,7 @@ typeCheckBlock xs = edit <$> mapM ff xs
 
 
 convertKey :: Type -> Parser Type
-convertKey (TClassKey s) = fromMaybe (error $ "not found class: " `mappend` s) <$> lookupEnv s
+convertKey (TClassKey s) = fromMaybe (error $ "not found class: " <> s) <$> lookupEnv s
 convertKey t = return t
 
 isSubTypeOf :: Type -> Type -> Bool
