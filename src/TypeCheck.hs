@@ -29,7 +29,6 @@ singleton = [M.empty]
 
 insertEnv :: String -> Type -> Parser ()
 insertEnv = (modifyState .) . insert
-    --getState >>= putState . insert k v
 
 insert :: String -> Type -> Env -> Env
 insert k v xxs@(x : xs)
@@ -48,11 +47,6 @@ lookupEnv k = lookup k  <$> getState
 
 lookup :: String -> Env -> Maybe Type
 lookup k = getFirst . foldl' (\acc -> mappend acc . First . M.lookup k) mempty
-    --getFirst . mconcat . fmap (First . M.lookup k)
-{-
-lookup k (x : xs) = maybe (lookup k xs) return $ M.lookup k x
-lookup _ _ = Nothing
--}
 
 pop :: Parser (Maybe Env)
 pop = getState >>= modf
@@ -163,11 +157,6 @@ instance ITypeCheck Primary where
                         where
                             rxt = fromJust $ lookup x z
 
-    {-
-    typeCheck (Dot p "new") = check <$> typeCheck p
-        where
-            check (cv, ct) = (Dot cv "new", ct)
-    -}
     typeCheck (Dot p "new") = typeCheck p >>= check
         where
             check (cv, ct@(TClassKey _)) = return (Dot cv "new", ct)
@@ -208,7 +197,6 @@ instance ITypeCheck Primary where
     update (Dot p x) t = typeCheck p >>= update'
         where
             update' (obj, TClassTree s ss z) = Dot obj x <$ (insertEnv s . TClassTree s ss $ insert x t z )
-    --update (DefApp p xs) t = error "undefined defapp update"
     update p _ = return p
 
 
