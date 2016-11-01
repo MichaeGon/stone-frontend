@@ -28,7 +28,8 @@ singleton :: Env
 singleton = [M.empty]
 
 insertEnv :: String -> Type -> Parser ()
-insertEnv k v = getState >>= putState . insert k v
+insertEnv = (modifyState .) . insert
+    --getState >>= putState . insert k v
 
 insert :: String -> Type -> Env -> Env
 insert k v xxs@(x : xs)
@@ -72,8 +73,8 @@ lengthEnv = length <$> getState
 splitEnvAt :: Int -> Parser (Env, Env)
 splitEnvAt n = splitAt n <$> getState
 
-maybe' :: String -> (a -> Parser b) -> Maybe a -> Parser b
-maybe' = maybe . fail
+maybe' :: String -> (a -> b) -> Maybe a -> Parser b
+maybe' s = maybe (fail s) . (return .)
 
 evacEnv :: Parser a -> Parser a
 evacEnv x = getState >>= (x >>=) . ($>) . putState
@@ -124,7 +125,7 @@ union x y
 instance ITypeCheck Primary where
     typeCheck (Paren e) = first Paren <$> typeCheck e
 
-    typeCheck p@(Id s) = lookupEnv s >>= maybe' ("undefined identifier: " <> s) (return . (p,))
+    typeCheck p@(Id s) = lookupEnv s >>= maybe' ("undefined identifier: " <> s) (p,)
 
     typeCheck (DefApp prim xs) = mapM typeCheck xs >>= checkFunc
         where
@@ -162,16 +163,23 @@ instance ITypeCheck Primary where
                         where
                             rxt = fromJust $ lookup x z
 
+    {-
     typeCheck (Dot p "new") = check <$> typeCheck p
         where
             check (cv, ct) = (Dot cv "new", ct)
+    -}
+    typeCheck (Dot p "new") = typeCheck p >>= check
+        where
+            check (cv, ct@(TClassKey _)) = return (Dot cv "new", ct)
+            check (cv, ct@TClassTree {}) = return (Dot cv "new", ct)
+            check _ = fail "Type Error: not a class type at .new"
 
     typeCheck p@(Dot (Id "this") x) = evacEnv getField
         where
-            getField = pop' >>= maybe' ("not found field: this." <> x) (return . (p,)) . lookup x
+            getField = pop' >>= maybe' ("not found field: this." <> x) (p,) . lookup x
     typeCheck (Dot p x) = typeCheck p >>= check
         where
-            check (obj, TClassTree _ _ z) = maybe' ("not found field: " <> x) (return . (Dot obj x,)) $ lookup x z
+            check (obj, TClassTree _ _ z) = maybe' ("not found field: " <> x) (Dot obj x,) $ lookup x z
 
     typeCheck (Array xs) = edit <$> mapM typeCheck xs
         where
@@ -265,7 +273,7 @@ instance ITypeCheck Stmt where
             check (cv, ct) (xvs, xt) (ev, et)
                 | xt == Unknown = fail "Type Error: unknown type at if body"
                 | ct `isSubTypeOf` TInt = return (If cv xvs (Just ev), ct `union` xt `union` et)
-                | otherwise = fail  $ "Type Error: expect Int at if condition but: " <> show ct
+                | otherwise = fail $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (If c xs _) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
@@ -318,7 +326,7 @@ instance ITypeCheck Stmt where
             dv = return ([], singleton)
             jf super = lookupEnv super >>= maybe' ("not found super class: " <> super)  jf'
                 where
-                    jf' (TClassTree x ss z) = return (x : ss, z)
+                    jf' (TClassTree x ss z) = (x : ss, z)
             build (ss, z) = push z
                         >> typeCheckBlock xs >>= checkEnv . fst
                 where
