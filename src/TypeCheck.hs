@@ -259,21 +259,21 @@ instance ITypeCheck Stmt where
             checkBody cvt = typeCheckBlock xs >>= checkElse cvt
             checkElse cvt xvts = typeCheckBlock e >>= check cvt xvts
             check (cv, ct) (xvs, xt) (ev, et)
-                | xt == Unknown = fail "Type Error: unknown type at if body"
+                | xt == Unknown = return (If cv xvs (Just ev), TAny)--fail "Type Error: unknown type at if body"
                 | ct `isSubTypeOf` TInt = return (If cv xvs (Just ev), ct `union` xt `union` et)
                 | otherwise = fail $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (If c xs _) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
-                | xt == Unknown = fail "Type Error: unknown type at if body"
+                | xt == Unknown = return (If cv xvs Nothing, TAny)--fail "Type Error: unknown type at if body"
                 | ct `isSubTypeOf` TInt =  return (If cv xvs Nothing, ct `union` xt)
                 | otherwise = fail $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (While c xs) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
-                | xt == Unknown = fail "Type Error: unknown type at while body"
+                | xt == Unknown = return (While cv xvs, TAny)--fail "Type Error: unknown type at while body"
                 | ct `isSubTypeOf` TInt = return (While cv xvs, ct `union` xt)
                 | otherwise = fail $ "Type Error: expect Int at while condition but: " <> show ct
 
