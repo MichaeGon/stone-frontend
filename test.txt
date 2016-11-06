@@ -91,3 +91,5 @@ xt = 7
 xt * 2
 
 def inc(n: Int): Int {n + 1}
+
+extern puts(s: String): Any

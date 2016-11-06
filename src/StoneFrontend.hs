@@ -49,12 +49,19 @@ def = reserved' "def" *> (Def <$> identifier' <*> paramList <*> typetag <*> bloc
         paramList = parens' . commaSep' $ param
         param = (,) <$> identifier' <*> typetag
 
+extern :: Parser Stmt
+extern = reserved' "extern" *> (Extern <$> identifier' <*> paramList <*> typetag')
+    where
+        paramList = parens' . commaSep' $ param
+        param = (,) <$> identifier' <*> typetag'
+
 stmt :: Parser Stmt
 stmt = choice
     [ variable
     , ifstmt
     , whilestmt
     , simple
+    , extern
     ]
     where
         ifstmt = reserved' "if" *> (If <$> expr <*> block <*> optionMaybe elsestmt)
@@ -112,7 +119,10 @@ primary = closure <|> primary'
         param = (,) <$> identifier' <*> typetag
 
 typetag :: Parser Type
-typetag = option Unknown $ reservedOp' ":" *> choice tags
+typetag = option Unknown typetag'
+
+typetag' :: Parser Type
+typetag' = reservedOp' ":" *> choice tags
     where
         tags =
             [ TInt <$ reserved' "Int"
