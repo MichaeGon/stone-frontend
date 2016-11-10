@@ -129,7 +129,14 @@ instance ITypeCheck Primary where
                 | otherwise = fail "Type Error: at function call"
                 where
                     (xs', xts) = unzip xvts
+            check xvts (p, TNative ats rt)
+                | length ats == length xvts && checkArgs (zip ats xts) = return (DefApp p xs', rt)
+                | otherwise = fail "Type Error: at native function call"
+                where
+                    (xs', xts) = unzip xvts
+                    
             checkArgs = all (\(at, et) -> et == Unknown || at == Unknown ||  et `isSubTypeOf` at)
+
 
     typeCheck (Fun xs t b) = initLocalEnv >>= push
                         >> typeCheckBlock b >>= build
@@ -336,5 +343,9 @@ instance ITypeCheck Stmt where
                 | otherwise = fail "Type Error: at var"
 
     typeCheck (Single e) = first Single <$> typeCheck e
+
+    typeCheck s@(Extern n xs t) = (s, nt) <$ insertEnv n nt
+        where
+            nt = TNative (fmap snd xs) t
 
     update x _ = return x
