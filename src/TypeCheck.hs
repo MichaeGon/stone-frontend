@@ -101,6 +101,14 @@ isSubTypeOf _ TAny = True
 
 isSubTypeOf (TFunction xs xt) (TFunction ys yt)
                     = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
+{-
+isSubTypeOF (TNative xs xt) (TNative ys yt)
+                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
+isSubTypeOF (TFunction xs xt) (TNative ys yt)
+                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
+isSubTypeOF (TNative xs xt) (TFunction ys yt)
+                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
+-}
 
 isSubTypeOf (TArray x) (TArray y)
                     = x `isSubTypeOf` y
@@ -129,12 +137,14 @@ instance ITypeCheck Primary where
                 | otherwise = fail "Type Error: at function call"
                 where
                     (xs', xts) = unzip xvts
+            {-
             check xvts (p, TNative ats rt)
                 | length ats == length xvts && checkArgs (zip ats xts) = return (DefApp p xs', rt)
                 | otherwise = fail "Type Error: at native function call"
                 where
                     (xs', xts) = unzip xvts
-
+            -}
+            
             checkArgs = all (\(at, et) -> et == Unknown || at == Unknown ||  et `isSubTypeOf` at)
 
 
@@ -346,6 +356,6 @@ instance ITypeCheck Stmt where
 
     typeCheck s@(Extern n xs t) = (s, nt) <$ insertEnv n nt
         where
-            nt = TNative (fmap snd xs) t
+            nt = TFunction (fmap snd xs) t --TNative (fmap snd xs) t
 
     update x _ = return x
