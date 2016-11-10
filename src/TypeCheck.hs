@@ -337,6 +337,8 @@ instance ITypeCheck Stmt where
 
     typeCheck (Single e) = first Single <$> typeCheck e
 
-    typeCheck (Extern s xs t) = error "undefined extern type check"
+    typeCheck s@(Extern n xs t) = (s, nt) <$ insertEnv n nt
+        where
+            nt = TNative (fmap snd xs) t 
 
     update x _ = return x

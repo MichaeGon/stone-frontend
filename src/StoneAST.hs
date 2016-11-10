@@ -37,6 +37,7 @@ data Type = TInt
     | TString
     | TClassKey String
     | TFunction [Type] Type
+    | TNative [Type] Type
     | TArray Type
     | TAny
     | TClassTree String [String] Env
