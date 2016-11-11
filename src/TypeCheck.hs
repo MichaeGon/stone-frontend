@@ -129,7 +129,16 @@ instance ITypeCheck Primary where
                 | otherwise = fail "Type Error: at function call"
                 where
                     (xs', xts) = unzip xvts
+            {-
+            check xvts (p, TNative ats rt)
+                | length ats == length xvts && checkArgs (zip ats xts) = return (DefApp p xs', rt)
+                | otherwise = fail "Type Error: at native function call"
+                where
+                    (xs', xts) = unzip xvts
+            -}
+
             checkArgs = all (\(at, et) -> et == Unknown || at == Unknown ||  et `isSubTypeOf` at)
+
 
     typeCheck (Fun xs t b) = initLocalEnv >>= push
                         >> typeCheckBlock b >>= build
@@ -222,7 +231,7 @@ instance ITypeCheck Expr where
     typeCheck (Bin l "+" r) = typeCheck r >>= checkLeft
         where
             checkLeft rvt = typeCheck l >>= check rvt
-            check (lv, lt) (rv, rt)
+            check (rv, rt) (lv, lt)
                 | lt == Unknown && lt == rt = (\lv' rv' -> (Bin lv' "+" rv', TInt)) <$> update lv TInt <*> update rv TInt
                 | lt == Unknown = (\lv' -> (Bin lv' "+" rv, TInt `union` rt)) <$> update lv TInt
                 | rt == Unknown = (\rv' -> (Bin lv "+" rv', lt `union` TInt)) <$> update rv TInt
@@ -259,21 +268,21 @@ instance ITypeCheck Stmt where
             checkBody cvt = typeCheckBlock xs >>= checkElse cvt
             checkElse cvt xvts = typeCheckBlock e >>= check cvt xvts
             check (cv, ct) (xvs, xt) (ev, et)
-                | xt == Unknown = fail "Type Error: unknown type at if body"
+                | xt == Unknown = return (If cv xvs (Just ev), TAny)
                 | ct `isSubTypeOf` TInt = return (If cv xvs (Just ev), ct `union` xt `union` et)
                 | otherwise = fail $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (If c xs _) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
-                | xt == Unknown = fail "Type Error: unknown type at if body"
+                | xt == Unknown = return (If cv xvs Nothing, TAny)
                 | ct `isSubTypeOf` TInt =  return (If cv xvs Nothing, ct `union` xt)
                 | otherwise = fail $ "Type Error: expect Int at if condition but: " <> show ct
     typeCheck (While c xs) = typeCheck c >>= checkBody
         where
             checkBody cvt = typeCheckBlock xs >>= check cvt
             check (cv, ct) (xvs, xt)
-                | xt == Unknown = fail "Type Error: unknown type at while body"
+                | xt == Unknown = return (While cv xvs, TAny)
                 | ct `isSubTypeOf` TInt = return (While cv xvs, ct `union` xt)
                 | otherwise = fail $ "Type Error: expect Int at while condition but: " <> show ct
 
@@ -336,5 +345,9 @@ instance ITypeCheck Stmt where
                 | otherwise = fail "Type Error: at var"
 
     typeCheck (Single e) = first Single <$> typeCheck e
+
+    typeCheck s@(Extern n xs t) = (s, nt) <$ insertEnv n nt
+        where
+            nt = TFunction (fmap snd xs) t 
 
     update x _ = return x

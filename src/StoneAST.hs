@@ -14,6 +14,7 @@ data Stmt = If Expr [Stmt] (Maybe [Stmt])
         | Def String [(String, Type)] Type [Stmt]
         | Class String (Maybe String) [Stmt]
         | Var String Type Expr
+        | Extern String [(String, Type)] Type
     deriving (Show, Eq)
 
 data Expr = Neg Primary | Pos Primary | Bin Expr String Expr
