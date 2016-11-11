@@ -144,7 +144,7 @@ instance ITypeCheck Primary where
                 where
                     (xs', xts) = unzip xvts
             -}
-            
+
             checkArgs = all (\(at, et) -> et == Unknown || at == Unknown ||  et `isSubTypeOf` at)
 
 
@@ -239,7 +239,7 @@ instance ITypeCheck Expr where
     typeCheck (Bin l "+" r) = typeCheck r >>= checkLeft
         where
             checkLeft rvt = typeCheck l >>= check rvt
-            check (lv, lt) (rv, rt)
+            check (rv, rt) (lv, lt)
                 | lt == Unknown && lt == rt = (\lv' rv' -> (Bin lv' "+" rv', TInt)) <$> update lv TInt <*> update rv TInt
                 | lt == Unknown = (\lv' -> (Bin lv' "+" rv, TInt `union` rt)) <$> update lv TInt
                 | rt == Unknown = (\rv' -> (Bin lv "+" rv', lt `union` TInt)) <$> update rv TInt
