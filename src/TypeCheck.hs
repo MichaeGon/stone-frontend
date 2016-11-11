@@ -101,14 +101,6 @@ isSubTypeOf _ TAny = True
 
 isSubTypeOf (TFunction xs xt) (TFunction ys yt)
                     = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
-{-
-isSubTypeOF (TNative xs xt) (TNative ys yt)
-                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
-isSubTypeOF (TFunction xs xt) (TNative ys yt)
-                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
-isSubTypeOF (TNative xs xt) (TFunction ys yt)
-                    = (length xs == length ys) && isSubTypeOf xt yt && all (uncurry isSubTypeOf) (zip xs ys)
--}
 
 isSubTypeOf (TArray x) (TArray y)
                     = x `isSubTypeOf` y
@@ -356,6 +348,6 @@ instance ITypeCheck Stmt where
 
     typeCheck s@(Extern n xs t) = (s, nt) <$ insertEnv n nt
         where
-            nt = TFunction (fmap snd xs) t --TNative (fmap snd xs) t
+            nt = TFunction (fmap snd xs) t 
 
     update x _ = return x
